@@ -1,0 +1,16 @@
+services:
+  ms:
+    container_name: mailsender
+    build: .
+    volumes:
+      - ./credentials.json:/app/credentials.json
+      - ./token.json:/app/token.json
+    ports:
+      - 8990:8000
+    restart: unless-stopped
+    networks:
+      - giftcards
+
+networks:
+  giftcards:
+    external: true
