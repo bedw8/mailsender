@@ -26,17 +26,19 @@ class EmailContent(BaseModel):
     mssg: str | Callable | None = None
     html: bool = True
     sender: str | None = None
-    giftcard: Annotated[UploadFile | None, File(...)] = None
+    file: Annotated[UploadFile | None, File(...)] = None
+    file_name: str | None = None
 
 
 @app.post("/send")
 async def send_email(
     email: Annotated[EmailContent, Form(...)],
 ):
-    if email.giftcard is not None:
+    if email.file is not None:
         # TODO: corregir esto. es un fix para solo un archivo
-        attach = (email.giftcard.filename, BytesIO(await email.giftcard.read()))
-        del email.giftcard
+        fname = email.file_name if email.file_name is not None else email.file.filename
+        attach = (fname, BytesIO(await email.file.read()))
+        del email.file
     else:
         attach = None
 
