@@ -1,7 +1,9 @@
-from fastapi import FastAPI, File, Form, UploadFile
+from fastapi import FastAPI, File, Form, UploadFile, status, Depends
+from fastapi.exceptions import HTTPException
+from fastapi.encoders import jsonable_encoder
 from pydantic import BaseModel, EmailStr
-
-from typing import Annotated, Callable
+import json
+from typing import Annotated, Optional
 from send_emails import send, Sender
 
 import logging
@@ -20,33 +22,51 @@ logger = logging.getLogger(__name__)
 app = FastAPI()
 
 
-class EmailContent(BaseModel):
-    to: EmailStr | None = None
-    subject: str | None = None
-    mssg: str | Callable | None = None
-    html: bool = True
-    sender: str | None = None
-    giftcard: Annotated[UploadFile | None, File(...)] = None
+def parse_data(params: Annotated[str | None, Form()] = None):
+    try:
+        if params is None:
+            return {}
+        return json.loads(params)
+    except Exception as e:
+        raise HTTPException(
+            detail=jsonable_encoder(e),
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        )
+
+
+class Params(BaseModel):
+    params: dict[str, str] | None
 
 
 @app.post("/send")
 async def send_email(
-    email: Annotated[EmailContent, Form(...)],
+    to: Annotated[EmailStr | None, Form()] = None,
+    subject: Annotated[str | None, Form()] = None,
+    mssg: Annotated[str | None, Form()] = None,
+    html: Annotated[bool, Form()] = True,
+    sender: Annotated[str | None, Form()] = None,
+    file: Annotated[UploadFile | None, File(...)] = None,
+    file_name: Annotated[str | None, Form()] = None,
+    params: Annotated[dict[str, str], Depends(parse_data)] = {},
 ):
-    if email.giftcard is not None:
+    email = locals()
+
+    if file is not None:
         # TODO: corregir esto. es un fix para solo un archivo
-        attach = (email.giftcard.filename, BytesIO(await email.giftcard.read()))
-        del email.giftcard
+        fname = file_name if file_name is not None else file.filename
+        attach = (fname, BytesIO(await file.read()))
+        del file
     else:
         attach = None
 
     send(
-        email=email.to,
-        subject=email.subject,
-        mssg_content=email.mssg,
-        html=email.html,
-        sender=Sender(email.sender),
+        email=to,
+        subject=subject,
+        mssg_content=mssg,
+        html=html,
+        sender=Sender(sender),
         files=attach,
+        fields=params,
     )
-    logger.info(email)
+    # logger.info(email)
     return email
