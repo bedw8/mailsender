@@ -3,7 +3,7 @@ from fastapi.exceptions import HTTPException
 from fastapi.encoders import jsonable_encoder
 from pydantic import BaseModel, EmailStr
 import json
-from typing import Annotated, Optional
+from typing import Annotated
 from send_emails import send, Sender
 
 import logging
