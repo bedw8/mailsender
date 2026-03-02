@@ -1,19 +1,20 @@
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+
 from email.mime.image import MIMEImage
 from email.mime.application import MIMEApplication
 
-from io import BinaryIO
 from base64 import urlsafe_b64encode
 
 import re
 
-from pydantic import FilePath, validate_call, BeforeValidator, NameEmail
-from typing import Annotated
+from pydantic import FilePath, validate_call, BeforeValidator, NameEmail, InstanceOf
 
-from .utils import validators
+from typing import Annotated, BinaryIO
 
-StrBuffer = tuple[str, BinaryIO]
+from ..utils import validators
+
+StrBuffer = InstanceOf[tuple[str, BinaryIO]]
 
 
 class Message:
@@ -25,7 +26,7 @@ class Message:
         img: StrBuffer | list[StrBuffer] | None = None,
         files: StrBuffer | list[StrBuffer] | None = None,
         html: bool = False,
-        fields: dict = {},
+        fields: dict[str, str] = {},
         max_image_size: int = 1024,
     ):
         """ """
@@ -49,7 +50,7 @@ class Message:
         if files:
             Attachment(img).attach(self)
 
-    def to_bytes(self) -> dict:
+    def to_bytes(self):
         # Encode the message and save it in a dictionary
         encoded = urlsafe_b64encode(self.mroot.as_bytes()).decode()
         return {"raw": encoded}
@@ -109,8 +110,8 @@ class AttachmentLegacy:
             data, subtype = AttachmentLegacy.get_data(path)
             yield data, subtype
 
-    @validate_call
     @staticmethod
+    @validate_call
     def get_data(path: FilePath, max_image_size: int = 1024):
         subtype = path.suffix.strip(".")
         is_image = validators.is_file_image(path)

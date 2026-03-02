@@ -1,10 +1,12 @@
-from fastapi import AppRouter, Request, RedirectResponse
+from fastapi import AppRouter, Request, RedirectResponse, Response
 from google_auth_oauthlib.flow import Flow
+
+from ..config import cfg
 
 router = AppRouter(prefix="/auth")
 
-scopes = ["https://www.googleapis.com/auth/gmail.send"]
-flow = Flow.from_client_secrets_file("../stuff/creds/credentials.json", scopes=scopes)
+scopes = cfg.sender.scopes
+flow = Flow.from_client_secrets_file(cfg.credentials_file, scopes=scopes)
 
 
 @router.get("/add_account")
@@ -22,3 +24,4 @@ async def auth_callback(code: str, request: Request):
 
     # save
     creds.to_json()
+    return Response(content="Autenticado correctamente")

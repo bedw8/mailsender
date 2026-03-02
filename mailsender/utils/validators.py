@@ -3,7 +3,9 @@ from typing import Any
 
 
 def ensure_list(value: Any) -> list:
-    return [value]
+    if not isinstance(value, list):
+        value = [value]
+    return value
 
 
 def is_file_image(path: FilePath) -> bool:
