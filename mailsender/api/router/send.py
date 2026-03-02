@@ -1,32 +1,30 @@
-from fastapi import FastAPI, File, Form, UploadFile, status, Depends
-from fastapi.exceptions import HTTPException
-from fastapi.encoders import jsonable_encoder
-from pydantic import BaseModel, EmailStr
-import json
 from typing import Annotated
-from send_emails import send, Sender
+from fastapi import (
+    APIRouter,
+    Form,
+    HTTPException,
+    status,
+    File,
+    UploadFile,
+    Depends,
+)
+from fastapi.encoders import jsonable_encoder
+from pydantic import EmailStr
 
-import logging
 from io import BytesIO
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    datefmt="%Y-%m-%d %H:%M:%S",
-)
+from mailsender import Sender, Message
+import json
 
-# Create a logger instance
-logger = logging.getLogger(__name__)
+router = APIRouter()
 
 
-app = FastAPI()
-
-
-def parse_data(params: Annotated[str | None, Form()] = None):
+# fix for dict input on form-encoded data
+def parse_data(fields: Annotated[str | None, Form()] = None):
     try:
-        if params is None:
+        if fields is None:
             return {}
-        return json.loads(params)
+        return json.loads(fields)
     except Exception as e:
         raise HTTPException(
             detail=jsonable_encoder(e),
@@ -34,20 +32,17 @@ def parse_data(params: Annotated[str | None, Form()] = None):
         )
 
 
-class Params(BaseModel):
-    params: dict[str, str] | None
-
-
-@app.post("/send")
+@router.post("/send")
 async def send_email(
     to: Annotated[EmailStr | None, Form()] = None,
     subject: Annotated[str | None, Form()] = None,
     mssg: Annotated[str | None, Form()] = None,
     html: Annotated[bool, Form()] = True,
     sender: Annotated[str | None, Form()] = None,
+    image: Annotated[UploadFile | None, File(...)] = None,
     file: Annotated[UploadFile | None, File(...)] = None,
     file_name: Annotated[str | None, Form()] = None,
-    params: Annotated[dict[str, str], Depends(parse_data)] = {},
+    fields: Annotated[dict[str, str], Depends(parse_data)] = {},
 ):
     email = locals()
 
@@ -59,14 +54,16 @@ async def send_email(
     else:
         attach = None
 
-    send(
-        email=to,
+    sender = Sender(sender)
+    mssg = Message(
         subject=subject,
-        mssg_content=mssg,
+        message=mssg,
+        img=image,
         html=html,
-        sender=Sender(sender),
-        files=attach,
-        fields=params,
+        fields=fields,
     )
+
+    sender.send(to, mssg)
+
     # logger.info(email)
     return email

@@ -2,28 +2,26 @@
 from pathlib import Path
 from time import sleep
 
-from .lib import get_gmail_service
-from .utils import validators as validators
+from .gmail import get_gmail_service
+from ..utils import validators as validators
 
 from .message import Message
 
 import email.message
-from pydantic import (
-    validate_call,
-    NameEmail,
-    EmailStr,
-    FilePath,
-)
+from pydantic import validate_call, NameEmail, EmailStr, FilePath, InstanceOf
 
 import warnings
 
-from .config import config
+from ..config import cfg as config
 
 
 class Sender:
     @validate_call
     def __init__(
-        self, from_address: NameEmail, credentials: FilePath = config.credentials_path
+        self,
+        from_address: NameEmail,
+        credentials: FilePath = config.credentials_file,
+        token_file: FilePath | None = None,
     ):
         self._from = from_address
         self._scopes = config.sender.scopes
@@ -32,17 +30,23 @@ class Sender:
         self._max_emails = config.sender.max_emails
         self._service = None
         self._i = 0
+        self._token_file = token_file
 
     @property
     def service(self):
         if not self._service:
             self._service = get_gmail_service(
-                scopes=self._scopes, credentials=self.credentials, port=self._port
+                scopes=self._scopes,
+                credentials=self.credentials,
+                port=self._port,
+                token_file=self._token_file,
+                account=self._from.email,
+                add_account=False,
             )
         return self._service
 
     @validate_call
-    def send(self, to: EmailStr, message: Message):
+    def send(self, to: EmailStr, message: InstanceOf[Message]):
         message.sender = self._from
 
         send_message = (

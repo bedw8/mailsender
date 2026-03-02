@@ -1,11 +1,10 @@
 import sys
+from enum import Enum
 from platformdirs.unix import Unix
 from platformdirs import PlatformDirs
 
-from typing import Any, ClassVar
 from pydantic import (
     BaseModel,
-    computed_field,
 )
 from pydantic_settings import (
     BaseSettings,
@@ -48,6 +47,11 @@ class DBSettings(BaseModel):
     name: str = "accounts.db"
 
 
+class AppRuntime(Enum):
+    script = "script"
+    uvicorn = "uvicorn"
+
+
 def _is_default(self, attr):
     cls = self.__class__
     attrval = getattr(self, attr)
@@ -68,6 +72,8 @@ class Settings(BaseSettings):
 
     sender: SenderSettings = SenderSettings()
     db: DBSettings = DBSettings()
+
+    runtime: AppRuntime = AppRuntime.script
 
     @classmethod
     def settings_customise_sources(
