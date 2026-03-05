@@ -20,6 +20,7 @@ dependencies = [
   "pydantic-extra-types>=2.10.6",
   "pydantic-settings>=2.12.0",
   "pytest>=8.4.1",
+  "smalluuid>=1.1.0",
   "sqlmodel>=0.0.24",
   "streamlit>=1.44.1",
 ]

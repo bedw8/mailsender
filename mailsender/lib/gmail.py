@@ -6,11 +6,10 @@ from pydantic import (
     Json,
     BeforeValidator,
     EmailStr,
-    Field,
     InstanceOf,
 )
 
-from typing import Any, Annotated
+from typing import Any, Annotated, ContextManager
 import googleapiclient.discovery
 
 from google.auth.transport.requests import Request
@@ -22,15 +21,16 @@ from ..utils import validators
 from ..config import cfg as config
 from ..db.conn import Session, get_session, Account, create_db_and_tables
 from sqlmodel import select
+import json
 
 create_db_and_tables()
 
 
 @validate_call
-def _add_account(
+def add_account(
     scopes: Annotated[list[str], BeforeValidator(validators.ensure_list)],
     credentials: FilePath = config.credentials_file,
-    token_file: FilePath | None = None,
+    token_file: Path | None = None,
     account: EmailStr | None = None,
     port: int = 0,
 ):
@@ -48,25 +48,25 @@ def save_token(
     token_data: str,
     to_file: Path | None = None,
     to_db: str | None = None,
-    db_session: InstanceOf[Session] = Field(default_factory=get_session),
+    db_session: InstanceOf[ContextManager[Session]] = get_session,
 ):
-    db_session = next(db_session)
-    if to_file:
-        with to_file.open(mode="w") as token_file:
-            token_file.write()
-    elif to_db:
-        email = to_db
+    with db_session() as session:
+        if to_file:
+            with to_file.open(mode="w") as token_file:
+                token_file.write(token_data)
+        elif to_db:
+            email = to_db
 
-        # check existing entry in db
-        stmt = select(Account).where(Account.email == email)
-        acc = db_session.exec(stmt).first()
-        if acc:
-            acc.creds = token_data
-        else:
-            acc = Account(email=email, creds=token_data)
+            # check existing entry in db
+            stmt = select(Account).where(Account.email == email)
+            acc = session.exec(stmt).first()
+            if acc:
+                acc.creds = token_data
+            else:
+                acc = Account(email=email, creds=token_data)
 
-        db_session.add(acc)
-        db_session.commit()
+            session.add(acc)
+            session.commit()
 
 
 @validate_call
@@ -74,37 +74,32 @@ def load_credentials(
     scopes: Annotated[list[str], BeforeValidator(validators.ensure_list)],
     credentials: FilePath = config.credentials_file,
     port: int = 0,
-    token_file: FilePath | None = None,
+    token_file: Path | None = None,
     account: EmailStr | None = None,
     token_data: Json[Any] | None = None,
     add_account: bool = False,
-    db_session: InstanceOf[Session] = Field(default_factory=get_session),
+    db_session: InstanceOf[ContextManager[Session]] = get_session,
 ):
     creds = None
 
     if token_file:
+        assert token_file.is_file()
         creds = Credentials.from_authorized_user_file(token_file, scopes)
     elif token_data:
         creds = Credentials.from_authorized_user_info(token_data)
     elif account:
-        db_session = next(db_session)
-        stmt = select(Account.creds).where(Account.email == account)
-        token_data = db_session.exec(stmt).first()
+        with db_session() as session:
+            stmt = select(Account.creds).where(Account.email == account)
+            token_data = json.loads(session.exec(stmt).first())
 
-        if token_data:
-            creds = Credentials.from_authorized_user_info(token_data)
-        else:
-            creds = None
+            if token_data:
+                creds = Credentials.from_authorized_user_info(token_data)
+            else:
+                creds = None
 
-    # If there are no (valid) credentials available, let the user log in.
-    if not creds.valid:
-        if creds and creds.expired and creds.refresh_token:
-            creds.refresh(Request())
-            save_token(token_data=creds.to_json(), to_file=token_file, to_db=account)
-
-    elif not creds:
+    if creds is None:
         if add_account:
-            creds = _add_account(
+            creds = add_account(
                 scopes=scopes,
                 credentials=credentials,
                 token_file=token_file,
@@ -113,6 +108,12 @@ def load_credentials(
             )
         else:
             raise Exception("Account not logged in")
+
+    # If there are no (valid) credentials available, let the user log in.
+    elif not creds.valid:
+        if creds.expired and creds.refresh_token:
+            creds.refresh(Request())
+            save_token(token_data=creds.to_json(), to_file=token_file, to_db=account)
     return creds
 
 
@@ -131,3 +132,6 @@ def get_gmail_service(
     creds = load_credentials(**args)
     service = googleapiclient.discovery.build("gmail", "v1", credentials=creds)
     return service
+
+
+# TODO: Implement a Source class and move token_file and DB to that system

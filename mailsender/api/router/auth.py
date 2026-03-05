@@ -1,9 +1,12 @@
-from fastapi import AppRouter, Request, RedirectResponse, Response
+from fastapi import APIRouter, Request, Response
+from fastapi.responses import RedirectResponse
 from google_auth_oauthlib.flow import Flow
+from googleapiclient.discovery import build
 
-from ..config import cfg
+from mailsender.config import cfg
+from mailsender.lib.gmail import save_token
 
-router = AppRouter(prefix="/auth")
+router = APIRouter(prefix="/auth")
 
 scopes = cfg.sender.scopes
 flow = Flow.from_client_secrets_file(cfg.credentials_file, scopes=scopes)
@@ -22,6 +25,10 @@ async def auth_callback(code: str, request: Request):
     flow.fetch_token(code=code)
     creds = flow.credentials
 
+    serv = build("oauth2", "v2", credentials=creds)
+    email = serv.userinfo().get().execute().get("email")
+
+    print(email)
     # save
-    creds.to_json()
+    save_token(token_data=creds.to_json(), to_db=email)
     return Response(content="Autenticado correctamente")

@@ -5,6 +5,8 @@ from platformdirs import PlatformDirs
 
 from pydantic import (
     BaseModel,
+    PostgresDsn,
+    field_validator,
 )
 from pydantic_settings import (
     BaseSettings,
@@ -45,6 +47,13 @@ class SenderSettings(BaseModel):
 
 class DBSettings(BaseModel):
     name: str = "accounts.db"
+    records_db: PostgresDsn | None = None
+
+    @field_validator("records_db")
+    def check_db_name(cls, v):
+        if v is not None:
+            assert v.path and len(v.path) > 1, "database must be provided"
+            return v
 
 
 class AppRuntime(Enum):
@@ -74,6 +83,7 @@ class Settings(BaseSettings):
     db: DBSettings = DBSettings()
 
     runtime: AppRuntime = AppRuntime.script
+    trackingURL: str = "localhost:8888"  # TODO: Cambiar
 
     @classmethod
     def settings_customise_sources(
@@ -93,4 +103,17 @@ class Settings(BaseSettings):
         )
 
 
+# TODO: Change the following to api/main.py
+
 cfg = Settings()
+
+# try:
+if not cfg.credentials_file.is_file():
+    raise FileNotFoundError(
+        f"{cfg.credentials_file} does not exists. Please add it or provide a credentials file path through the CREDENTIALS_FILE environment variable."
+    )
+
+if not cfile.file.is_file():
+    import yaml
+
+    yaml.dump(cfg.model_dump(mode="json"), cfile.file.open("w"))

@@ -8,7 +8,14 @@ from base64 import urlsafe_b64encode
 
 import re
 
-from pydantic import FilePath, validate_call, BeforeValidator, NameEmail, InstanceOf
+from pydantic import (
+    FilePath,
+    validate_call,
+    BeforeValidator,
+    NameEmail,
+    EmailStr,
+    InstanceOf,
+)
 
 from typing import Annotated, BinaryIO
 
@@ -63,6 +70,15 @@ class Message:
     @sender.setter
     def sender(self, value: NameEmail):
         self.mroot["From"] = str(value)
+
+    @property
+    def to(self):
+        """The sender property."""
+        return self.mroot["To"]
+
+    @to.setter
+    def to(self, value: EmailStr | list[EmailStr]):
+        self.mroot["To"] = value
 
 
 StrBufferList = Annotated[list[StrBuffer], BeforeValidator(validators.ensure_list)]
