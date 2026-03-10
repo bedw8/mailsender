@@ -3,13 +3,18 @@ services:
     container_name: mailsender
     build: .
     volumes:
+      - ./config:/config
       - ./credentials.json:/app/credentials.json
-      - ./token.json:/app/token.json
     ports:
       - 8990:8000
+    environment:
+      CONFIG_DIR: /config
+      GMAIL__CREDENTIALS_FILE: /app/credentials.json
+      DB__RECORDS_DB: postgresql://
+      TRACKINGURL: localhost:8990
     restart: unless-stopped
     networks:
-      - giftcards
+      # - giftcards
       - mailsender
 
   records:
@@ -25,6 +30,6 @@ services:
       - mailsender
 
 networks:
-  giftcards:
-    external: true
+  # giftcards:
+  #   external: true
   mailsender:

@@ -8,6 +8,6 @@ COPY ./pyproject.toml ./uv.lock ./.python-version /app/
 RUN uv sync
 
 
-COPY . /app
+COPY mailsender/ /app/mailsender
 
-CMD [ "uv", "run", "fastapi", "run", "main.py" ]
+CMD [ "uv", "run", "fastapi", "run", "mailsender/api/main.py" ]
