@@ -1,15 +1,17 @@
 # External modules
 from pathlib import Path
 from pydantic import (
+    Field,
     FilePath,
     validate_call,
     Json,
     BeforeValidator,
     EmailStr,
-    InstanceOf,
+    SkipValidation,
+    ConfigDict,
 )
 
-from typing import Any, Annotated, ContextManager
+from typing import Any, Annotated
 import googleapiclient.discovery
 
 from google.auth.transport.requests import Request
@@ -38,11 +40,12 @@ def add_account(
     credentials: FilePath | None = None,
     token_file: Path | None = None,
     account: EmailStr | None = None,
-    port: int = 0,
-    config: Settings = config,
+    port: int | None = None,
+    config: GmailSettings = Field(default_factory=GmailSettings),
 ):
     credentials = credentials if credentials is not None else config.credentials_file
-    scopes = scopes if scopes is not None else config.gmail.scopes
+    scopes = scopes if scopes is not None else config.scopes
+    port = port if port is not None else config.port
 
     flow = InstalledAppFlow.from_client_secrets_file(credentials, scopes)
     creds = flow.run_local_server(port=port)
@@ -137,7 +140,7 @@ def get_gmail_service(
     credentials: FilePath | None = None,
     account: EmailStr | None = None,
     add_account: bool = False,
-    config: Settings = config,
+    config: Settings = Field(default_factory=Settings),
 ) -> googleapiclient.discovery:
     # Saving arguments
     args = locals()
