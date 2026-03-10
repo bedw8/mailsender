@@ -16,6 +16,7 @@ from io import BytesIO
 from mailsender import Sender, Message
 import json
 from ..main import logger
+from mailsender.lib.errors import AccountNotFoundOnDB
 
 router = APIRouter()
 
@@ -55,7 +56,11 @@ async def send_email(
     else:
         attach = None
 
-    sender = Sender(sender)
+    try:
+        sender = Sender(sender)
+    except AccountNotFoundOnDB as e:
+        return HTTPException(status_code=400, detail=str(e))
+
     mssg = Message(
         subject=subject,
         message=mssg,

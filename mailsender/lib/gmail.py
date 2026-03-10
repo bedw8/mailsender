@@ -22,6 +22,7 @@ from ..settings import GmailSettings
 from ..db.accounts import SQLiteAccountsDBInterface, Account, save_token_to_db
 from ..db.db_protocol import DBProtocol
 from .message import Message
+from .errors import AccountNotFoundOnDB
 from sqlmodel import select
 from .service import EmailService
 import json
@@ -141,7 +142,7 @@ class GoogleAPIService(EmailService):
             stmt = select(Account.creds).where(Account.email == account)
             token_str = session.exec(stmt).first()
             if not token_str:
-                return None
+                raise AccountNotFoundOnDB(account)
             token_data = json.loads(token_str)
             creds = Credentials.from_authorized_user_info(token_data)
             return GoogleAPIService(credentials=creds)
