@@ -1,11 +1,13 @@
 import sys
 from enum import Enum
+from typing import Annotated
 from platformdirs.unix import Unix
 from platformdirs import PlatformDirs
 import warnings
 
 from pydantic import (
     BaseModel,
+    Field,
     PostgresDsn,
     field_validator,
 )
@@ -40,8 +42,10 @@ class ConfigFile(BaseSettings):
 cfile = ConfigFile()
 
 
-class GmailSettings(BaseModel):
-    credentials_file: Path = "credentials.json"
+class GmailSettings(BaseSettings):
+    model_config = SettingsConfigDict(env_prefix="gmail__")
+
+    credentials_file: Annotated[Path, Field(validate_default=True)] = "credentials.json"
     scopes: list[str] = [
         "https://www.googleapis.com/auth/gmail.send",
         "https://www.googleapis.com/auth/userinfo.email",
@@ -49,8 +53,14 @@ class GmailSettings(BaseModel):
     ]
     port: int = 0
 
+    def model_post_init(self, context):
+        if not self.credentials_file.is_file():
+            warnings.warn(
+                f"{self.credentials_file} does not exists. Please add it or provide a credentials file path through the CREDENTIALS_FILE environment variable."
+            )
 
-class SenderSettings(BaseSettings):
+
+class SenderSettings(BaseModel):
     max_emails: int = 100
 
 
@@ -70,27 +80,23 @@ class AppRuntime(Enum):
     uvicorn = "uvicorn"
 
 
-def _is_default(self, attr):
-    cls = self.__class__
-    attrval = getattr(self, attr)
-    return attrval == cls.model_fields.get(attr).default
-
-
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(extra="allow")
+    model_config = SettingsConfigDict(env_nested_delimiter="__")
 
     config_dir: Path = dirs.user_config_path
-    gmail: GmailSettings = GmailSettings()
-    sender: SenderSettings = SenderSettings()
-    db: DBSettings = DBSettings()
+    gmail: GmailSettings = Field(default_factory=GmailSettings)
+    sender: SenderSettings = Field(default_factory=SenderSettings)
+    db: DBSettings = Field(default_factory=DBSettings)
 
     runtime: AppRuntime = AppRuntime.script
     trackingURL: str = "localhost:8888"  # TODO: Cambiar
 
-    def model_post_init(self, context):
-        creds_file = self.gmail.credentials_file
-        if len(creds_file.parts) == 1:
-            self.gmail.credentials_file = self.config_dir / creds_file
+    # def model_post_init(self, context):
+    #     creds_file = self.gmail.credentials_file
+    #     print(creds_file)
+    #     print(creds_file.parts)
+    #     if len(creds_file.parts) == 1:
+    #         self.gmail.credentials_file = self.config_dir / creds_file
 
     @classmethod
     def settings_customise_sources(
@@ -104,25 +110,25 @@ class Settings(BaseSettings):
         return (
             init_settings,
             env_settings,
-            YamlConfigSettingsSource(settings_cls, yaml_file=["config.yaml"]),
-            file_secret_settings,
-            dotenv_settings,
+            YamlConfigSettingsSource(settings_cls, yaml_file="config.yaml"),
         )
 
+    @classmethod
+    def load(cls) -> "Settings":
+        return cls()
 
-# TODO: Change the following to api/main.py
+    def to_yaml(self, path: Path):
+        import yaml
+
+        print("Writing config file")
+        yaml.dump(config.model_dump(mode="json"), Path(path).open("w"))
+
 
 config = Settings()
 
-# try:
-if not config.credentials_file.is_file():
-    warnings.warn(
-        f"{config.credentials_file} does not exists. Please add it or provide a credentials file path through the CREDENTIALS_FILE environment variable."
-    )
-
-if not cfile.file.is_file():
-    import yaml
-
-    print("Writing config file")
-    print(config)
-    yaml.dump(config.model_dump(mode="json"), cfile.file.open("w"))
+# TODO: Change the following to api/main.py
+# if not cfile.file.is_file():
+#
+#     print("Writing config file")
+#     print(config)
+#     yaml.dump(config.model_dump(mode="json"), cfile.file.open("w"))
