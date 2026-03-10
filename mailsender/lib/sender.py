@@ -1,19 +1,19 @@
 # External libraries
-from pathlib import Path
 from time import sleep
 
-from .gmail import get_gmail_service
+from .gmail import get_gmail_service, GoogleAPIService
 from ..utils import validators as validators
 from ..utils.tracking import add_pixel
 
 from .message import Message
+from .service import EmailService
 
 import email.message
-from pydantic import validate_call, NameEmail, EmailStr, FilePath, InstanceOf
+from pydantic import validate_call, NameEmail, EmailStr, InstanceOf
 
 import warnings
 
-from ..config import cfg as config
+from ..settings import config, Settings
 
 if config.db.records_db is not None:
     from ..db.records import create_db_and_tables, Session, engine, Record
@@ -26,29 +26,26 @@ class Sender:
     def __init__(
         self,
         from_address: NameEmail,
-        credentials: FilePath = config.credentials_file,
-        token_file: FilePath | None = None,
+        *,
+        service: EmailService | None = None,
+        config: Settings = Settings(),
     ):
+        self._config = config
+
         self._from = from_address
-        self._scopes = config.sender.scopes
-        self.credentials = Path(credentials)
-        self._port = config.sender.port
-        self._max_emails = config.sender.max_emails
-        self._service = None
+        self._max_emails = self.config.sender.max_emails
+        self._service = service
         self._i = 0
-        self._token_file = token_file
 
     @property
     def service(self):
         if not self._service:
-            self._service = get_gmail_service(
-                scopes=self._scopes,
-                credentials=self.credentials,
-                port=self._port,
-                token_file=self._token_file,
+            self._service = GoogleAPIService.from_db(
                 account=self._from.email,
                 add_account=False,
+                config=self._config.gmail,
             )
+
         return self._service
 
     @validate_call

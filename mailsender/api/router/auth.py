@@ -3,13 +3,13 @@ from fastapi.responses import RedirectResponse
 from google_auth_oauthlib.flow import Flow
 from googleapiclient.discovery import build
 
-from mailsender.config import cfg
+import mailsender.config as config
 from mailsender.lib.gmail import save_token
 
 router = APIRouter(prefix="/auth")
 
-scopes = cfg.sender.scopes
-flow = Flow.from_client_secrets_file(cfg.credentials_file, scopes=scopes)
+scopes = config.gmail.scopes
+flow = Flow.from_client_secrets_file(config.credentials_file, scopes=scopes)
 
 
 @router.get("/add_account")

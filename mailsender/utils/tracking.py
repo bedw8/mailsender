@@ -1,5 +1,4 @@
-from email.mime.text import MIMEText
-from ..config import cfg as config
+from ..settings import config
 
 from ..lib.message import Message
 

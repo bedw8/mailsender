@@ -1,6 +1,5 @@
 from typing import Annotated
 from fastapi import APIRouter, Response, Depends
-from smalluuid import SmallUUID
 
 from mailsender.db.records import get_session, Session, Track
 

@@ -1,5 +1,5 @@
 [project]
-name = "mail-api"
+name = "mailsender"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
@@ -29,7 +29,4 @@ dependencies = [
 members = ["fastapi"]
 
 [dependency-groups]
-dev = [
-    "ipython>=9.3.0",
-    "notebook>=7.4.5",
-]
+dev = ["ipython>=9.3.0", "notebook>=7.4.5"]

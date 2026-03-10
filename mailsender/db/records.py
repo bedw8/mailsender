@@ -1,13 +1,11 @@
 from sqlmodel import SQLModel, Field, create_engine, Session
 from pydantic import EmailStr
-from mailsender.config import cfg as config
+from ..settings import config
 from datetime import datetime
 from smalluuid import SmallUUID
-from contextlib import contextmanager
 from sqlalchemy.orm import registry
-
-db_path = config.db.records_db
-engine = create_engine(f"{db_path}")
+from .db_protocol import DBProtocol
+from dataclasses import dataclass
 
 
 # For multiple DB management
@@ -15,14 +13,26 @@ class Base(SQLModel, registry=registry()):
     pass
 
 
-def create_db_and_tables():
-    Base.metadata.create_all(engine)
+@dataclass
+class PgRecordsDBInterface(DBProtocol):
+    db_path: str = config.db.model_dump().get("records_db")
+    _engine = None
 
+    def __post_init__(self):
+        self.create_engine()
+        if self._engine is not None:
+            self.create_db_and_tables()
 
-@contextmanager
-def get_session():
-    with Session(engine) as session:
-        yield session
+    def create_engine(self):
+        self._engine = (
+            None if self.db_path is None else create_engine(f"{self.db_path}")
+        )
+
+    def create_db_and_tables(self):
+        Base.metadata.create_all(self._engine)
+
+    def get_session(self):
+        return Session(self._engine)
 
 
 class Record(Base, table=True):

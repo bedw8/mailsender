@@ -987,7 +987,7 @@ wheels = [
 ]
 
 [[package]]
-name = "mail-api"
+name = "mailsender"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
