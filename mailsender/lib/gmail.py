@@ -4,24 +4,22 @@ from pydantic import (
     Field,
     FilePath,
     validate_call,
-    Json,
     BeforeValidator,
     EmailStr,
     SkipValidation,
     ConfigDict,
 )
 
-from typing import Any, Annotated
+from typing import Annotated
 import googleapiclient.discovery
 
-from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 
 # import .utils.validators as validators
 from ..utils import validators
-from ..settings import Settings, GmailSettings
-from ..db.accounts import SQLiteAccountsDBInterface, Account
+from ..settings import GmailSettings
+from ..db.accounts import SQLiteAccountsDBInterface, Account, save_token_to_db
 from ..db.db_protocol import DBProtocol
 from .message import Message
 from sqlmodel import select
@@ -29,128 +27,63 @@ from .service import EmailService
 import json
 import warnings
 
-default_db_interface = SQLiteAccountsDBInterface()
-default_db_interface.create_db_and_tables()
 
-
-# TODO: Dependency injection
-@validate_call
-def add_account(
-    scopes: Annotated[list[str], BeforeValidator(validators.ensure_list)] | None = None,
-    credentials: FilePath | None = None,
-    token_file: Path | None = None,
-    account: EmailStr | None = None,
-    port: int | None = None,
-    config: GmailSettings = Field(default_factory=GmailSettings),
-):
-    credentials = credentials if credentials is not None else config.credentials_file
-    scopes = scopes if scopes is not None else config.scopes
-    port = port if port is not None else config.port
-
-    flow = InstalledAppFlow.from_client_secrets_file(credentials, scopes)
-    creds = flow.run_local_server(port=port)
-
-    # Save the credentials for the next run
-    save_token(token_data=creds.to_json(), to_file=token_file, to_db=account)
-
-    return creds
-
-
-@validate_call(config=ConfigDict(arbitrary_types_allowed=True))
-def save_token(
-    token_data: str,
-    to_file: Path | None = None,
-    to_db: str | None = None,
-    db: SkipValidation[DBProtocol] = default_db_interface,
-):
-    if to_file:
-        with to_file.open(mode="w") as token_file:
-            token_file.write(token_data)
-    elif to_db:
-        with db.get_session() as session:
-            email = to_db
-
-            # check existing entry in db
-            stmt = select(Account).where(Account.email == email)
-            acc = session.exec(stmt).first()
-            if acc:
-                acc.creds = token_data
-            else:
-                acc = Account(email=email, creds=token_data)
-
-            session.add(acc)
-            session.commit()
-
-
-@validate_call(config=ConfigDict(arbitrary_types_allowed=True))
-def load_credentials(
-    scopes: Annotated[list[str], BeforeValidator(validators.ensure_list)] | None = None,
-    credentials: FilePath | None = None,
-    port: int = 0,
-    token_file: Path | None = None,
-    account: EmailStr | None = None,
-    token_data: Json[Any] | None = None,
-    add_account: bool = False,
-    db: SkipValidation[DBProtocol] = default_db_interface,
-    config: Settings = Field(default_factory=Settings),
-):
-    # this is credentials file
-    credentials = credentials if credentials is not None else config.credentials_file
-    scopes = scopes if scopes is not None else config.gmail.scopes
-
-    # this is credentials object, not credentials file
-    creds = None
-
-    scopes = scopes if scopes is not None else config.gmail.scopes
-
-    if token_file:
-        assert token_file.is_file()
-        creds = Credentials.from_authorized_user_file(token_file, scopes)
-    elif token_data:
-        creds = Credentials.from_authorized_user_info(token_data)
-    elif account:
-        with db.get_session() as session:
-            stmt = select(Account.creds).where(Account.email == account)
-            token_data = json.loads(session.exec(stmt).first())
-            creds = Credentials.from_authorized_user_info(token_data)
-
-    if creds is None:
-        if add_account:
-            creds = add_account(
-                scopes=scopes,
-                credentials=credentials,
-                token_file=token_file,
-                account=account,
-                port=port,
-                config=config,
-            )
-        else:
-            raise Exception("Account not logged in")
-
-    # If there are no (valid) credentials available, let the user log in.
-    elif not creds.valid:
-        if creds.expired and creds.refresh_token:
-            creds.refresh(Request())
-            save_token(token_data=creds.to_json(), to_file=token_file, to_db=account)
-    return creds
-
-
-@validate_call
-def get_gmail_service(
-    credentials: FilePath | None = None,
-    account: EmailStr | None = None,
-    add_account: bool = False,
-    config: Settings = Field(default_factory=Settings),
-) -> googleapiclient.discovery:
-    # Saving arguments
-    args = locals()
-    # Use the local and secret
-    creds = load_credentials(**args)
-    service = googleapiclient.discovery.build("gmail", "v1", credentials=creds)
-    return service
+# @validate_call(config=ConfigDict(arbitrary_types_allowed=True))
+# def load_credentials(
+#     scopes: Annotated[list[str], BeforeValidator(validators.ensure_list)] | None = None,
+#     credentials: FilePath | None = None,
+#     port: int = 0,
+#     token_file: Path | None = None,
+#     account: EmailStr | None = None,
+#     token_data: Json[Any] | None = None,
+#     add_account: bool = False,
+#     db: SkipValidation[DBProtocol] = default_db_interface,
+#     config: Settings = Field(default_factory=Settings),
+# ):
+#     # this is credentials file
+#     credentials = credentials if credentials is not None else config.credentials_file
+#     scopes = scopes if scopes is not None else config.gmail.scopes
+#
+#     # this is credentials object, not credentials file
+#     creds = None
+#
+#     scopes = scopes if scopes is not None else config.gmail.scopes
+#
+#     if token_file:
+#         assert token_file.is_file()
+#         creds = Credentials.from_authorized_user_file(token_file, scopes)
+#     elif token_data:
+#         creds = Credentials.from_authorized_user_info(token_data)
+#     elif account:
+#         with db.get_session() as session:
+#             stmt = select(Account.creds).where(Account.email == account)
+#             token_data = json.loads(session.exec(stmt).first())
+#             creds = Credentials.from_authorized_user_info(token_data)
+#
+#     if creds is None:
+#         if add_account:
+#             creds = add_account(
+#                 scopes=scopes,
+#                 credentials=credentials,
+#                 token_file=token_file,
+#                 account=account,
+#                 port=port,
+#                 config=config,
+#             )
+#         else:
+#             raise Exception("Account not logged in")
+#
+#     # If there are no (valid) credentials available, let the user log in.
+#     elif not creds.valid:
+#         if creds.expired and creds.refresh_token:
+#             creds.refresh(Request())
+#             save_token(token_data=creds.to_json(), to_file=token_file, to_db=account)
+#     return creds
 
 
 class GoogleAPIService(EmailService):
+    _default_db_interface = SQLiteAccountsDBInterface()
+
     def __init__(
         self,
         credentials: Credentials | None = None,
@@ -200,8 +133,10 @@ class GoogleAPIService(EmailService):
     @staticmethod
     def _from_db(
         account: EmailStr,
-        db: SkipValidation[DBProtocol] = default_db_interface,
+        db: SkipValidation[DBProtocol | None] = None,
     ):
+        if db is None:
+            db = GoogleAPIService._default_db_interface
         with db.get_session() as session:
             stmt = select(Account.creds).where(Account.email == account)
             token_str = session.exec(stmt).first()
@@ -214,10 +149,13 @@ class GoogleAPIService(EmailService):
     @staticmethod
     def from_db(
         account: EmailStr,
-        db: SkipValidation[DBProtocol] = default_db_interface,
+        db: SkipValidation[DBProtocol | None] = None,
         add: bool = False,
         config: GmailSettings = GmailSettings(),
     ):
+        if db is None:
+            db = GoogleAPIService._default_db_interface
+
         serv = GoogleAPIService._from_db(account=account, db=db)
         if not serv and add:
             creds = add_account(
@@ -247,3 +185,46 @@ class GoogleAPIService(EmailService):
 
 
 # TODO: Implement a Source class and move token_file and DB to that system
+
+
+# TODO: Move parameter to a single Model
+@validate_call
+def add_account(
+    scopes: Annotated[list[str], BeforeValidator(validators.ensure_list)] | None = None,
+    credentials: FilePath | None = None,
+    token_file: Path | None = None,
+    account: EmailStr | None = None,
+    port: int | None = None,
+    config: GmailSettings = Field(default_factory=GmailSettings),
+):
+    credentials = credentials if credentials is not None else config.credentials_file
+    scopes = scopes if scopes is not None else config.scopes
+    port = port if port is not None else config.port
+
+    flow = InstalledAppFlow.from_client_secrets_file(credentials, scopes)
+    creds = flow.run_local_server(port=port)
+
+    # Save the credentials for the next run
+    save_token(token_data=creds.to_json(), to_file=token_file, to_db=account)
+
+    return creds
+
+
+@validate_call(config=ConfigDict(arbitrary_types_allowed=True))
+def save_token(
+    token_data: str,
+    to_file: Path | None = None,
+    to_db: str | None = None,
+    db: SkipValidation[DBProtocol | None] = None,
+):
+    if db is None:
+        db = GoogleAPIService._default_db_interface
+
+    if to_file:
+        with to_file.open(mode="w") as token_file:
+            token_file.write(token_data)
+    elif to_db:
+        with db.get_session() as session:
+            email = to_db
+
+            save_token_to_db(token_data, email, session)

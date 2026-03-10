@@ -28,7 +28,6 @@ async def auth_callback(code: str, request: Request):
     serv = build("oauth2", "v2", credentials=creds)
     email = serv.userinfo().get().execute().get("email")
 
-    print(email)
     # save
     save_token(token_data=creds.to_json(), to_db=email)
     return Response(content="Autenticado correctamente")
