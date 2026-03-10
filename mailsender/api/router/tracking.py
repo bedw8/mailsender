@@ -1,7 +1,7 @@
 from typing import Annotated
 from fastapi import APIRouter, Response, Depends
 
-from mailsender.db.records import Track, PgRecordsDBInterface
+from mailsender.db.records import Track, PgRecordsDBInterface, add_track
 from sqlmodel import Session
 
 
@@ -37,7 +37,6 @@ async def send_email(
     session: Annotated[Session, Depends(get_session)],
 ):
     track = Track(mid=mid)
-    session.add(track)
-    session.commit()
+    add_track(track, session)
 
     return Response(content=PIXEL_GIF, media_type="image/gif", headers=headers)

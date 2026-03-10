@@ -9,12 +9,13 @@ from fastapi import (
     Depends,
 )
 from fastapi.encoders import jsonable_encoder
-from pydantic import EmailStr
+from pydantic import EmailStr, NameEmail
 
 from io import BytesIO
 
 from mailsender import Sender, Message
 import json
+from ..main import logger
 
 router = APIRouter()
 
@@ -34,11 +35,11 @@ def parse_data(fields: Annotated[str | None, Form()] = None):
 
 @router.post("/send")
 async def send_email(
+    sender: Annotated[NameEmail | None, Form()] = None,
     to: Annotated[EmailStr | None, Form()] = None,
     subject: Annotated[str | None, Form()] = None,
     mssg: Annotated[str | None, Form()] = None,
     html: Annotated[bool, Form()] = True,
-    sender: Annotated[str | None, Form()] = None,
     image: Annotated[UploadFile | None, File(...)] = None,
     file: Annotated[UploadFile | None, File(...)] = None,
     file_name: Annotated[str | None, Form()] = None,
@@ -65,5 +66,5 @@ async def send_email(
 
     sender.send(to, mssg)
 
-    # logger.info(email)
+    logger.info(email)
     return email

@@ -1,14 +1,9 @@
-import os
-from fastapi import FastAPI, Depends
-from mailsender.db.conn import Session, get_session
-from typing import Annotated
+from fastapi import FastAPI
 import logging
 
-os.environ.setdefault("RUNTIME", "uvicorn")
+from mailsender import Settings
 
-from .router import auth
-from .router import send
-from .router import tracking
+config = Settings()
 
 logging.basicConfig(
     level=logging.INFO,
@@ -19,10 +14,13 @@ logging.basicConfig(
 # Create a logger instance
 logger = logging.getLogger(__name__)
 
+from .router import auth
+from .router import send
+from .router import tracking
+
 
 app = FastAPI()
 
-SessionDep = Annotated[Session, Depends(get_session)]
 
 app.include_router(auth.router)
 app.include_router(send.router)

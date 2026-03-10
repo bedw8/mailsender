@@ -89,7 +89,7 @@ class Settings(BaseSettings):
     db: DBSettings = Field(default_factory=DBSettings)
 
     runtime: AppRuntime = AppRuntime.script
-    trackingURL: str = "localhost:8888"  # TODO: Cambiar
+    trackingURL: str = "localhost:8000"  # TODO: Cambiar
 
     # def model_post_init(self, context):
     #     creds_file = self.gmail.credentials_file
