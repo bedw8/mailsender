@@ -1,5 +1,5 @@
 [project]
-name = "mail-api"
+name = "mailsender"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
@@ -14,10 +14,13 @@ dependencies = [
   "numpy>=2.2.4",
   "openpyxl>=3.1.5",
   "pendulum>=3.1.0",
+  "platformdirs>=4.4.0",
   "psycopg2-binary>=2.9.10",
   "pydantic>=2.11.2",
   "pydantic-extra-types>=2.10.6",
+  "pydantic-settings>=2.12.0",
   "pytest>=8.4.1",
+  "smalluuid>=1.1.0",
   "sqlmodel>=0.0.24",
   "streamlit>=1.44.1",
 ]
@@ -26,7 +29,4 @@ dependencies = [
 members = ["fastapi"]
 
 [dependency-groups]
-dev = [
-    "ipython>=9.3.0",
-    "notebook>=7.4.5",
-]
+dev = ["ipython>=9.3.0", "notebook>=7.4.5"]

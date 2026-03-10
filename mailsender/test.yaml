@@ -1,0 +1,7 @@
+db:
+  name: test.db
+sender:
+  max_emails: 999
+  port: 999
+  scopes:
+  - testing

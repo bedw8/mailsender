@@ -10,7 +10,21 @@ services:
     restart: unless-stopped
     networks:
       - giftcards
+      - mailsender
+
+  records:
+    container_name: records_db
+    image: postgres:15.17-trixie
+    ports:
+      - 5432:5432
+    environment:
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=mails
+    restart: unless-stopped
+    networks:
+      - mailsender
 
 networks:
   giftcards:
     external: true
+  mailsender:
