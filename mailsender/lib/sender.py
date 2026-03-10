@@ -37,10 +37,12 @@ class Sender:
         records_db: SkipValidation[DBProtocol | None] = Field(
             default_factory=PgRecordsDBInterface
         ),
+        add=False,
     ):
         self._config = config
 
         self._from = from_address
+        self._add_new = add
         self._max_emails = self._config.sender.max_emails
         self._service = service
         self._db = records_db
@@ -51,7 +53,7 @@ class Sender:
         if not self._service:
             self._service = GoogleAPIService.from_db(
                 account=self._from.email,
-                add=True,
+                add=self._add_new,
                 config=self._config.gmail,
             )
 
