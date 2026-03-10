@@ -22,7 +22,7 @@ from pydantic import (
 import warnings
 from ..settings import Settings
 from ..db.db_protocol import DBProtocol
-from ..db.records import PgRecordsDBInterface, Record
+from ..db.records import PgRecordsDBInterface, Record, add_record
 
 
 # TODO: Change to Pydantic BaseModel and remove @validate_call
@@ -73,9 +73,7 @@ class Sender:
                 from_=self._from.email, to=to, content=message.mroot.as_string()
             )
             with self._db.get_session() as session:
-                session.add(record)
-                session.commit()
-                session.refresh(record)
+                add_record(record, session)
 
                 print(record.mid)
                 add_pixel(message, mid=record.mid)

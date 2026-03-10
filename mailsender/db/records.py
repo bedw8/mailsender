@@ -46,5 +46,20 @@ class Record(Base, table=True):
 
 class Track(Base, table=True):
     __tablename__ = "tracking"
-    mid: str = Field(primary_key=True)
+    id: int | None = Field(default=None, primary_key=True)
+    mid: str = Field(index=True)
     opened_at: datetime = Field(default_factory=datetime.now)
+
+
+def add_record(record: Record, session: Session):
+    session.add(record)
+    session.commit()
+    session.refresh(record)
+
+
+def add_track(track: Track, session: Session):
+    # if session.get(Track, track.mid) is not None:
+    #     return
+
+    session.add(track)
+    session.commit()

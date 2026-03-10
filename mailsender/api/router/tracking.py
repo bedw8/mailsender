@@ -1,10 +1,17 @@
 from typing import Annotated
 from fastapi import APIRouter, Response, Depends
 
-from mailsender.db.records import get_session, Session, Track
+from mailsender.db.records import Track, PgRecordsDBInterface
+from sqlmodel import Session
+
+
+def get_session():
+    db = PgRecordsDBInterface()
+    with db.get_session() as session:
+        yield session
+
 
 router = APIRouter()
-
 
 PIXEL_GIF = (
     b"GIF89a\x01\x00\x01\x00\x80\x00\x00"
