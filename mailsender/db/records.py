@@ -6,6 +6,7 @@ from smalluuid import SmallUUID
 from sqlalchemy.orm import registry
 from .db_protocol import DBProtocol
 from dataclasses import dataclass
+from ..lib.errors import AlreadyUnsubsribed
 
 
 # For multiple DB management
@@ -51,6 +52,13 @@ class Track(Base, table=True):
     opened_at: datetime = Field(default_factory=datetime.now)
 
 
+class UnsubscribedEmail(Base, table=True):
+    __tablename__ = "unsubscribed"
+    email: EmailStr = Field(primary_key=True)
+    date: datetime = Field(default_factory=datetime.now)
+    comment: str | None = None
+
+
 def add_record(record: Record, session: Session):
     session.add(record)
     session.commit()
@@ -62,4 +70,18 @@ def add_track(track: Track, session: Session):
     #     return
 
     session.add(track)
+    session.commit()
+
+
+def unsubscribe(email: UnsubscribedEmail, session: Session):
+    if session.get(UnsubscribedEmail, email.email):
+        raise AlreadyUnsubsribed(email.email)
+
+    session.add(email)
+    session.commit()
+    session.refresh(email)
+
+
+def resubscribe(email: UnsubscribedEmail, session: Session):
+    session.delete(email)
     session.commit()
