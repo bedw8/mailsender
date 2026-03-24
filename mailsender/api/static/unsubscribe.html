@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<title>Unsubscribe</title>
+		<link rel="stylesheet" href="{{ url_for('static', path='styles.css') }}">
+	</head>
+	<body>
+		<main class="shell">
+			<section class="panel" aria-labelledby="unsubscribe-title">
+				<img src="https://static.wixstatic.com/media/fc7a5e_230716f41dfe4dcea309a9f55ecea818~mv2.png/v1/fill/w_520,h_106,al_c,q_85,usm_0.66_1.00_0.01,enc_avif,quality_auto/test2.png" alt="Centro de Microdatos" style="max-width: 220px; height: auto; margin-bottom: 16px">
+				<div class="detail">Ya no recibirás correos en {{ email }}</div>
+				<h1 id="unsubscribe-title">Lamentamos verte partir.</h1>
+				<p>
+					Cuéntanos cómo podemos mejorar. Tus comentarios nos ayudan.
+				</p>
+				<form action="{{ url_for('add_comment') }}?mid={{ mid }}" method="post">
+					<label for="comments">Comentarios opcionales</label>
+					<textarea id="comments"
+					          name="comments"
+					          placeholder="Comparte lo que quieras que sepamos..."
+					></textarea>
+					<div class="actions">
+						<button class="primary" type="submit">Enviar comentarios</button>
+						<a class="button-link ghost" href="{{ url_for('add_to_maillist') ~ '?mid=' ~ mid }}">Volver a suscribirme</a>
+					</div>
+				</form>
+			</section>
+
+			<aside class="side" aria-label="Qué sigue">
+				<h2>Qué sigue</h2>
+				<div class="list">
+					<span><i class="dot"></i>Dejaremos de enviar correos automáticos.</span>
+					<span><i class="dot"></i>Puedes volver con un solo click.</span>
+					<span><i class="dot"></i>Tus datos están protegidos y privados.</span>
+				</div>
+			</aside>
+		</main>
+	</body>
+</html>

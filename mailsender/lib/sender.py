@@ -4,6 +4,7 @@ from time import sleep
 from .gmail import GoogleAPIService
 from ..utils import validators as validators
 from ..utils.tracking import add_pixel
+from ..utils.mailinglist import add_unsubs_footer
 
 from .message import Message
 from .service import EmailService
@@ -22,7 +23,8 @@ from pydantic import (
 import warnings
 from ..settings import Settings
 from ..db.db_protocol import DBProtocol
-from ..db.records import PgRecordsDBInterface, Record, add_record
+from ..db.records import PgRecordsDBInterface, Record, add_record, get_unsubscribed
+from .errors import UnsubscribedAddress
 
 
 # TODO: Change to Pydantic BaseModel and remove @validate_call
@@ -68,17 +70,22 @@ class Sender:
         message.sender = self._from
         message.to = to
 
-        # Create record before send message to add tracking pixel into the message content
         record = None
         if self._db._engine is not None:
+            # Check unsubscribed
+            with self._db.get_session() as session:
+                if get_unsubscribed(to, session):
+                    raise UnsubscribedAddress(str(to))
+
+            # Create record before send message to add tracking pixel into the message content
             record = Record(
                 from_=self._from.email, to=to, content=message.mroot.as_string()
             )
             with self._db.get_session() as session:
                 add_record(record, session)
 
-                print(record.mid)
                 add_pixel(message, mid=record.mid)
+                add_unsubs_footer(message, mid=record.mid)
 
         send_message = (
             self.service.service.users()
@@ -94,3 +101,6 @@ class Sender:
             sleep(1)
 
         self._i += 1
+
+        if record:
+            return record

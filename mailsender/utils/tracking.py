@@ -1,6 +1,6 @@
 from ..settings import config
-
 from ..lib.message import Message
+from .append import append
 
 
 def add_pixel(mssg: Message, mid: str, trackingURL: str = config.trackingURL):
@@ -9,7 +9,4 @@ def add_pixel(mssg: Message, mid: str, trackingURL: str = config.trackingURL):
 
     pixel = f'<img src="{trackingURL}/pixel.gif?mid={mid}" width="1" height="1" style="display:none;" alt="">'
 
-    text = mssg.mroot.get_payload()[0]
-    text_data = text.get_payload()
-
-    text.set_payload(text_data + pixel)
+    append(mssg, pixel)

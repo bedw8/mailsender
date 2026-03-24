@@ -6,7 +6,10 @@ from smalluuid import SmallUUID
 from sqlalchemy.orm import registry
 from .db_protocol import DBProtocol
 from dataclasses import dataclass
-from ..lib.errors import AlreadyUnsubsribed
+from ..lib.errors import (
+    AlreadyUnsubscribed,
+    RecordNotFound,
+)
 
 
 # For multiple DB management
@@ -65,6 +68,13 @@ def add_record(record: Record, session: Session):
     session.refresh(record)
 
 
+def get_record(mid: str, session: Session):
+    r = session.get(Record, mid)
+    if r is None:
+        raise RecordNotFound(mid)
+    return r
+
+
 def add_track(track: Track, session: Session):
     # if session.get(Track, track.mid) is not None:
     #     return
@@ -73,15 +83,49 @@ def add_track(track: Track, session: Session):
     session.commit()
 
 
-def unsubscribe(email: UnsubscribedEmail, session: Session):
-    if session.get(UnsubscribedEmail, email.email):
-        raise AlreadyUnsubsribed(email.email)
+def unsubscribe(email: EmailStr, session: Session):
+    if session.get(UnsubscribedEmail, email):
+        raise AlreadyUnsubscribed(email)
 
+    email = UnsubscribedEmail(email=email)
     session.add(email)
     session.commit()
     session.refresh(email)
 
 
+def unsubscribe_from_record(record: Record | str, session: Session):
+    if isinstance(record, str):
+        record = get_record(record, session)
+
+    unsubscribe(record.to, session)
+
+
 def resubscribe(email: UnsubscribedEmail, session: Session):
     session.delete(email)
     session.commit()
+
+
+def get_unsubscribed(email: EmailStr, session: Session):
+    return session.get(UnsubscribedEmail, email)
+
+
+def resubscribe_from_record(record: Record | str, session: Session):
+    if isinstance(record, str):
+        record = get_record(record, session)
+
+    email = get_unsubscribed(record.to, session)
+    resubscribe(email, session)
+
+
+def add_comment(email: UnsubscribedEmail, comment: str, session: Session):
+    email.comment = comment
+    session.add(email)
+    session.commit()
+
+
+def add_comment_from_record(record: Record | str, comment: str, session: Session):
+    if isinstance(record, str):
+        record = get_record(record, session)
+
+    email = get_unsubscribed(record.to, session)
+    add_comment(email, comment, session)

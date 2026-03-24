@@ -45,7 +45,7 @@ class Message:
             message = re.sub("{" + key + "}", str(fields[key]), message)
 
         mtype = "html" if html else "plain"
-        mtext = MIMEText(message, mtype)
+        mtext = MIMEText(message, mtype, "UTF-8")
 
         self.mroot.attach(mtext)
         self.mroot["Subject"] = subject
