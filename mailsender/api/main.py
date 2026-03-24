@@ -4,6 +4,8 @@ import logging
 from mailsender import Settings
 from importlib import resources
 from fastapi.staticfiles import StaticFiles
+from .middleware import HTTPSSchemeMiddleware
+
 
 config = Settings()
 
@@ -25,6 +27,7 @@ from .router import unsubs
 static_path = resources.files("mailsender.api").joinpath("static")
 
 app = FastAPI()
+app.add_middleware(HTTPSSchemeMiddleware)
 
 app.mount("/static", StaticFiles(directory=static_path), name="static")
 

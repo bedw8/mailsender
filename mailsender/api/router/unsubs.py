@@ -1,10 +1,7 @@
 from typing import Annotated
 from fastapi import APIRouter, Form, Depends, Request, HTTPException
 from fastapi.responses import HTMLResponse
-from mailsender.lib.errors import (
-    AlreadyUnsubscribed,
-    RecordNotFound,
-)
+from mailsender.lib.errors import AlreadyUnsubscribed, RecordNotFound, NotUnsubscribed
 
 from mailsender.db.records import (
     PgRecordsDBInterface,
@@ -46,7 +43,8 @@ async def remove_from_maillist(
     try:
         unsubscribe_from_record(mid, session)
     except AlreadyUnsubscribed as e:
-        return HTTPException(status_code=409, detail=str(e))
+        # return HTTPException(status_code=409, detail=str(e))
+        pass
     except RecordNotFound as e:
         return HTTPException(status_code=404, detail=str(e))
 
@@ -63,8 +61,9 @@ async def add_to_maillist(
 ):
     try:
         resubscribe_from_record(mid, session)
-    except AlreadyUnsubscribed as e:
-        return HTTPException(status_code=409, detail=str(e))
+    except NotUnsubscribed as e:
+        # return HTTPException(status_code=409, detail=str(e))
+        pass
     except RecordNotFound as e:
         return HTTPException(status_code=404, detail=str(e))
 

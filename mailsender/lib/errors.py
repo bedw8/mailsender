@@ -26,3 +26,8 @@ class RecordNotFound(Exception):
 class UnsubscribedAddress(Exception):
     def __init__(self, email: str):
         super().__init__(f"Email: {email} is unsubscribed.")
+
+
+class NotUnsubscribed(Exception):
+    def __init__(self, email: str):
+        super().__init__(f"Email: {email} is not unsubscribed.")

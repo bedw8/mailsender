@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from ..lib.errors import (
     AlreadyUnsubscribed,
     RecordNotFound,
+    NotUnsubscribed,
 )
 
 
@@ -84,7 +85,7 @@ def add_track(track: Track, session: Session):
 
 
 def unsubscribe(email: EmailStr, session: Session):
-    if session.get(UnsubscribedEmail, email):
+    if get_unsubscribed(email, session):
         raise AlreadyUnsubscribed(email)
 
     email = UnsubscribedEmail(email=email)
@@ -114,6 +115,10 @@ def resubscribe_from_record(record: Record | str, session: Session):
         record = get_record(record, session)
 
     email = get_unsubscribed(record.to, session)
+
+    if not email:
+        raise NotUnsubscribed(record.to)
+
     resubscribe(email, session)
 
 
