@@ -41,16 +41,17 @@ async def remove_from_maillist(
     session: Annotated[Session, Depends(get_session)],
 ):
     try:
-        unsubscribe_from_record(mid, session)
+        email = unsubscribe_from_record(mid, session)
+        return templates.TemplateResponse(
+            request=request,
+            name="unsubscribe.html",
+            context={"mid": mid, "email": email},
+        )
     except AlreadyUnsubscribed as e:
         # return HTTPException(status_code=409, detail=str(e))
         pass
     except RecordNotFound as e:
         return HTTPException(status_code=404, detail=str(e))
-
-    return templates.TemplateResponse(
-        request=request, name="unsubscribe.html", context={"mid": mid}
-    )
 
 
 @router.get("/resubscribe")
@@ -60,15 +61,15 @@ async def add_to_maillist(
     session: Annotated[Session, Depends(get_session)],
 ):
     try:
-        resubscribe_from_record(mid, session)
+        email = resubscribe_from_record(mid, session)
+        return templates.TemplateResponse(
+            request=request, name="resubscribed.html", context={"email": email}
+        )
     except NotUnsubscribed as e:
         # return HTTPException(status_code=409, detail=str(e))
         pass
     except RecordNotFound as e:
         return HTTPException(status_code=404, detail=str(e))
-
-    # TODO: crear otra pagina html
-    return templates.TemplateResponse(request=request, name="resubscribed.html")
 
 
 @router.post("/unsubscribe/comment")
