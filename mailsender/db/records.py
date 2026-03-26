@@ -93,17 +93,21 @@ def unsubscribe(email: EmailStr, session: Session):
     session.commit()
     session.refresh(email)
 
+    return email.email
+
 
 def unsubscribe_from_record(record: Record | str, session: Session):
     if isinstance(record, str):
         record = get_record(record, session)
 
-    unsubscribe(record.to, session)
+    return unsubscribe(record.to, session)
 
 
 def resubscribe(email: UnsubscribedEmail, session: Session):
     session.delete(email)
     session.commit()
+
+    return email.email
 
 
 def get_unsubscribed(email: EmailStr, session: Session):
@@ -119,7 +123,7 @@ def resubscribe_from_record(record: Record | str, session: Session):
     if not email:
         raise NotUnsubscribed(record.to)
 
-    resubscribe(email, session)
+    return resubscribe(email, session)
 
 
 def add_comment(email: UnsubscribedEmail, comment: str, session: Session):

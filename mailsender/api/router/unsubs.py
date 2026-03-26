@@ -8,6 +8,7 @@ from mailsender.db.records import (
     unsubscribe_from_record,
     resubscribe_from_record,
     add_comment_from_record,
+    get_record,
 )
 from sqlmodel import Session
 from importlib import resources
@@ -48,8 +49,11 @@ async def remove_from_maillist(
     except RecordNotFound as e:
         return HTTPException(status_code=404, detail=str(e))
 
+    email = get_record(mid, session).to
     return templates.TemplateResponse(
-        request=request, name="unsubscribe.html", context={"mid": mid}
+        request=request,
+        name="unsubscribe.html",
+        context={"mid": mid, "email": email},
     )
 
 
@@ -67,8 +71,10 @@ async def add_to_maillist(
     except RecordNotFound as e:
         return HTTPException(status_code=404, detail=str(e))
 
-    # TODO: crear otra pagina html
-    return templates.TemplateResponse(request=request, name="resubscribed.html")
+    email = get_record(mid, session).to
+    return templates.TemplateResponse(
+        request=request, name="resubscribed.html", context={"email": email}
+    )
 
 
 @router.post("/unsubscribe/comment")
