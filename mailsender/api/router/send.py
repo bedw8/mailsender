@@ -36,6 +36,7 @@ def parse_data(fields: Annotated[str | None, Form()] = None):
 @router.post("/send")
 async def send_email(
     sender: Annotated[NameEmail | None, Form()] = None,
+    db_account: Annotated[EmailStr | None, Form()] = None,
     to: Annotated[EmailStr | None, Form()] = None,
     subject: Annotated[str | None, Form()] = None,
     mssg: Annotated[str | None, Form()] = None,
@@ -56,9 +57,9 @@ async def send_email(
         attach = None
 
     try:
-        sender = Sender(sender)
+        sender = Sender(from_address=sender,db_account=db_account)
     except AccountNotFoundOnDB as e:
-        return HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(status_code=404, detail=str(e))
 
     mssg = Message(
         subject=subject,
@@ -72,6 +73,6 @@ async def send_email(
         record = sender.send(to, mssg)
         email["mid"] = record.mid
     except UnsubscribedAddress as e:
-        return HTTPException(status_code=409, detail=str(e))
+        raise HTTPException(status_code=409, detail=str(e))
 
     return email

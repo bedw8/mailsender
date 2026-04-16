@@ -33,6 +33,7 @@ class Sender:
     def __init__(
         self,
         from_address: NameEmail,
+        db_account: EmailStr | None = None,
         *,
         service: SkipValidation[EmailService] | None = None,
         config: Settings = Field(default_factory=Settings),
@@ -44,21 +45,24 @@ class Sender:
         self._config = config
 
         self._from = from_address
+        self._db_account = self._from.email if not db_account else db_account
         self._add_new = add
         self._max_emails = self._config.sender.max_emails
-        self._service = service
+
         self._db = records_db
         self._i = 0
 
-    @property
-    def service(self):
-        if not self._service:
+        if service:
+            self._service = service
+        else:
             self._service = GoogleAPIService.from_db(
-                account=self._from.email,
+                account=self._db_account,
                 add=self._add_new,
                 config=self._config.gmail,
             )
 
+    @property
+    def service(self):
         return self._service
 
     @validate_call
