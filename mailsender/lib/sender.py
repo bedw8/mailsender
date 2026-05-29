@@ -26,7 +26,7 @@ from pydantic import (
 import warnings
 from ..settings import Settings
 from ..db.db_protocol import DBProtocol
-from ..db.records import PgRecordsDBInterface, Record, add_record, get_unsubscribed
+from ..db.records import Campaign, PgRecordsDBInterface, Record, add_record, get_campaign, is_unsubscribed
 from .errors import UnsubscribedAddress
 
 
@@ -87,6 +87,7 @@ class Sender:
         us_footer: bool = True,
         us_link: bool = False,
         tracking: bool = True,
+        campaign: int | Campaign | None = None,
     ):
         message = message # 
         message.sender = self._from
@@ -94,10 +95,24 @@ class Sender:
 
         record = None
         if self._db._engine is not None:
-            # Check unsubscribed
             with self._db.get_session() as session:
-                if get_unsubscribed(to, session):
-                    raise UnsubscribedAddress(str(to))
+                campaign = get_campaign(campaign=campaign,
+                                    address=self._from.email,
+                                    session=session)
+                
+                if len(is_unsubscribed(email=to,
+                                   campaign=campaign,
+                                   session=session))>0:
+                    raise UnsubscribedAddress(email=str(to),campaign_name=campaign.name)
+
+                # Create record before send message to add tracking pixel into the message content
+                record = Record(
+                    from_=self._from.email, 
+                    to=to, 
+                    subject=message.mroot["Subject"],
+                    content=message.mroot.as_string(),
+                    campaign=campaign,
+                )
 
         # Create record before send message to add tracking pixel into the message content
             record = Record(

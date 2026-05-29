@@ -1,6 +1,6 @@
 from typing import Annotated
 from fastapi import Query
-from sqlmodel import SQLModel, Field, create_engine, Session, select
+from sqlmodel import SQLModel, Field, create_engine, Session, Relationship, select, col
 from pydantic import EmailStr
 from ..settings import config
 from datetime import datetime
@@ -41,22 +41,33 @@ class PgRecordsDBInterface(DBProtocol):
     def get_session(self):
         return Session(self._engine)
 
+class Campaign(Base, table=True):
+    __tablename__ = "campaigns"
+    id: int | None = Field(default=None, primary_key=True)
+    address: EmailStr 
+    name: str
+    unsubs: list["UnsubscribedEmail"] = Relationship(back_populates="campaign")
+    records: list["Record"] = Relationship( back_populates="campaign")
 
 class Record(Base, table=True):
     __tablename__ = "records"
     mid: str = Field(default_factory=lambda: SmallUUID().small, primary_key=True)
     from_: EmailStr = Field(alias="from")
+    token: str 
     to: EmailStr
     subject: str
     content: str = ""
     sent_at: datetime = Field(default_factory=datetime.now)
-    token: str 
+    campaign_id: int | None = Field(foreign_key="campaigns.id")
+    campaign: Campaign | None = Relationship(back_populates="records")
+    trackings: list["Track"] = Relationship()
 
 
 class Track(Base, table=True):
     __tablename__ = "tracking"
     id: int | None = Field(default=None, primary_key=True)
-    mid: str = Field(index=True)
+    mid: str = Field(index=True, foreign_key="records.mid")
+    record: Record = Relationship(back_populates="trackings")
     opened_at: datetime = Field(default_factory=datetime.now)
 
 
@@ -65,7 +76,8 @@ class UnsubscribedEmail(Base, table=True):
     email: EmailStr = Field(primary_key=True)
     date: datetime = Field(default_factory=datetime.now)
     comment: str | None = None
-
+    campaign_id: int | None = Field(foreign_key="campaigns.id")
+    campaign: Campaign | None = Relationship(back_populates="unsubs")
 
 def list_records(session: Session, 
                  q: list[str] = [],
@@ -110,11 +122,13 @@ def add_track(track: Track, session: Session):
     session.commit()
     return True
 
-def unsubscribe(email: EmailStr, session: Session):
-    if get_unsubscribed(email, session):
-        raise AlreadyUnsubscribed(email)
+def unsubscribe(email: EmailStr, campaign: int | Campaign, session: Session):
+    campaign = is_unsubscribed(email, campaign, session)
+    if campaign == True:
+        raise AlreadyUnsubscribed(email, campaign.name)
 
-    email = UnsubscribedEmail(email=email)
+    email = UnsubscribedEmail(email=email, campaign_id=campaign.id)
+
     session.add(email)
     session.commit()
     session.refresh(email)
@@ -126,7 +140,10 @@ def unsubscribe_from_record(record: Record | str, session: Session):
     if isinstance(record, str):
         record = get_record(record, session)
 
-    return unsubscribe(record.to, session)
+    camp = record.campaign
+    print(camp)
+
+    return unsubscribe(record.to, camp, session)
 
 
 def resubscribe(email: UnsubscribedEmail, session: Session):
@@ -136,18 +153,33 @@ def resubscribe(email: UnsubscribedEmail, session: Session):
     return email.email
 
 
-def get_unsubscribed(email: EmailStr, session: Session):
-    return session.get(UnsubscribedEmail, email)
+def is_unsubscribed(email: EmailStr, 
+                    campaign: int | Campaign | None,
+                    session: Session
+                    ):
+    
+    stmt = select(UnsubscribedEmail).where(UnsubscribedEmail.email == email)
+
+    if isinstance(campaign, Campaign):
+        camp = campaign 
+    elif isinstance(campaign, int):
+        camp = session.get(Campaign, campaign)
+    
+    if camp:
+        stmt = stmt.where(UnsubscribedEmail.campaign == camp)
+
+    unsub = session.exec(stmt).all()
+    return unsub
 
 
 def resubscribe_from_record(record: Record | str, session: Session):
     if isinstance(record, str):
         record = get_record(record, session)
 
-    email = get_unsubscribed(record.to, session)
+    email = get_unsubscribed(record.to, record.campaign, session)
 
     if not email:
-        raise NotUnsubscribed(record.to)
+        raise NotUnsubscribed(record.to, record.campaign.name)
 
     return resubscribe(email, session)
 
@@ -162,5 +194,83 @@ def add_comment_from_record(record: Record | str, comment: str, session: Session
     if isinstance(record, str):
         record = get_record(record, session)
 
-    email = get_unsubscribed(record.to, session)
+    email = get_unsubscribed(email=record.to, 
+                             campaign=record.campaign_id,
+                             session=session)
     add_comment(email, comment, session)
+
+
+
+def new_campaign(camp: Campaign, session: Session):
+    session.add(camp)
+    session.commit()
+    session.refresh(camp)
+
+    return camp
+
+def del_campaign(camp: Campaign, session: Session):
+    session.delete(camp)
+    session.commit()
+
+def get_campaign(campaign: int | Campaign | None = None, 
+                 address: EmailStr | None = None, 
+                 *,
+                 session: Session,
+                 ):
+
+    if isinstance(campaign, Campaign):
+        return campaign
+    if isinstance(campaign, int):
+        return session.get(Campaign, campaign)
+    if not campaign:
+        if not address:
+            raise Exception('Debe ingresar address si campaign es None')
+        
+        stmt = select(Campaign)\
+                .where(Campaign.address == address)\
+                .where(Campaign.name == 'default')
+
+        default =  session.exec(stmt).first()
+        if not default:
+            default = Campaign(address=address, name='default')
+            session.add(default)
+            session.commit()
+            session.refresh(default)
+        return default
+
+def list_campaigns(address: EmailStr, session: Session):
+    stmt = select(Campaign).where(Campaign.address == address)
+    camps = session.exec(stmt).all()
+    return camps
+
+def list_unsubs(camp_id: int | list[int] | None = None, *,session: Session):
+    stmt = select(UnsubscribedEmail)
+    if isinstance(camp_id, int):
+        camp_id = [camp_id]
+
+    if camp_id:
+        stmt = stmt.where(col(UnsubscribedEmail.campaign_id).in_(camp_id))
+
+    unsubs = session.exec(stmt).all()
+
+    return unsubs
+
+def list_trackings(sender: EmailStr | None = None, subject: str | None = None, campaign_id: int | None = None,*, session: Session):
+
+    stmt = select(Track)
+    ## select(Track.id, Track.mid, Record.from_, Record.to, Record.subject , Track.opened_at).join()
+    if sender:
+        stmt = stmt.where(Track.record.has(Record.from_ == sender))
+    if subject:
+        stmt = stmt.where(Track.record.has(Record.subject == subject))
+    if campaign_id:
+        stmt = stmt.where(Track.record.has(Record.campaign_id == campaign_id))
+
+    trackings = session.exec(stmt).all()
+
+    return trackings
+    
+
+
+    
+
