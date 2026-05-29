@@ -25,7 +25,7 @@ StrBuffer = InstanceOf[tuple[str, BinaryIO]]
 
 
 class Message:
-    @validate_call
+    # @validate_call
     def __init__(
         self,
         subject: str,

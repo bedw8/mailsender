@@ -5,6 +5,7 @@ import uuid
 from ..settings import config
 from .db_protocol import DBProtocol
 from dataclasses import dataclass
+import json
 
 
 class Base(SQLModel, registry=registry()):
