@@ -52,10 +52,10 @@ class Message:
 
         # Add the attachments
         if img:
-            InlineImage(img).attach(self)
+            InlineImage(img).attach(self.mroot)
 
         if files:
-            Attachment(img).attach(self)
+            Attachment(files).attach(self.mroot)
 
     def to_bytes(self):
         # Encode the message and save it in a dictionary

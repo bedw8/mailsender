@@ -41,20 +41,29 @@ async def send_email(
     subject: Annotated[str | None, Form()] = None,
     mssg: Annotated[str | None, Form()] = None,
     html: Annotated[bool, Form()] = True,
-    image: Annotated[UploadFile | None, File(...)] = None,
-    file: Annotated[UploadFile | None, File(...)] = None,
-    file_name: Annotated[str | None, Form()] = None,
+    image: list[UploadFile]| None = None,
+    file: list[UploadFile] | None = None,
+    # file_name: Annotated[str | None, Form()] = None,
     fields: Annotated[dict[str, str], Depends(parse_data)] = {},
 ):
     email = locals()
 
-    if file is not None:
-        # TODO: corregir esto. es un fix para solo un archivo
-        fname = file_name if file_name is not None else file.filename
-        attach = (fname, BytesIO(await file.read()))
-        del file
+    if file is not None and len(file)>0:
+        attach = []
+        for f in file:
+            # TODO: corregir esto. es un fix para solo un archivo
+            # fname = file_name if file_name is not None else f.filename
+            attach.append( (f.filename, BytesIO(await f.read())) )
+            # del file
     else:
         attach = None
+
+    if image and len(image)>0:
+        i_attach = []
+        for i in image:
+            i_attach.append( (i.filename, BytesIO(await i.read())) )
+    else:
+        i_attach = None
 
     try:
         sender = Sender(from_address=sender,db_account=db_account)
@@ -64,7 +73,8 @@ async def send_email(
     mssg = Message(
         subject=subject,
         message=mssg,
-        img=image,
+        img=i_attach,
+        files=attach,
         html=html,
         fields=fields,
     )
@@ -75,4 +85,5 @@ async def send_email(
     except UnsubscribedAddress as e:
         raise HTTPException(status_code=409, detail=str(e))
 
+    del email['mssg'] 
     return email
