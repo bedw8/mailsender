@@ -67,6 +67,7 @@ class SenderSettings(BaseModel):
 class DBSettings(BaseModel):
     name: str = "accounts.db"
     records_db: PostgresDsn | None = None
+    token_key: str = "secretkey"
 
     @field_validator("records_db")
     def check_db_name(cls, v):

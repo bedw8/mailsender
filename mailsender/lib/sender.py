@@ -1,6 +1,8 @@
 # External libraries
 from time import sleep
 
+from mailsender.db.token import SQLiteTokenDBInterface
+
 from .gmail import GoogleAPIService
 from ..utils import validators as validators
 from ..utils.tracking import add_pixel
@@ -33,19 +35,30 @@ class Sender:
     def __init__(
         self,
         from_address: NameEmail,
-        db_account: EmailStr | None = None,
+        account: EmailStr | None = None,
+        token: str | None = None,
+        verify_token: bool = False,
         *,
         service: SkipValidation[EmailService] | None = None,
         config: Settings = Field(default_factory=Settings),
         records_db: SkipValidation[DBProtocol | None] = Field(
             default_factory=PgRecordsDBInterface
         ),
-        add=False,
+        token_db: SkipValidation[DBProtocol | None] = Field(
+            default_factory=SQLiteTokenDBInterface
+        ),
+        add:bool =False,
     ):
         self._config = config
 
+        self._token = token
+        self._token_db = token_db
+
+        if verify_token and token_db:
+            self._token_db.verify_token(self._token) # if invalid, raise exception
+
         self._from = from_address
-        self._db_account = self._from.email if not db_account else db_account
+        self._account = self._from.email if not account else account
         self._add_new = add
         self._max_emails = self._config.sender.max_emails
 
@@ -56,7 +69,7 @@ class Sender:
             self._service = service
         else:
             self._service = GoogleAPIService.from_db(
-                account=self._db_account,
+                account=self._account,
                 add=self._add_new,
                 config=self._config.gmail,
             )
@@ -83,7 +96,10 @@ class Sender:
 
             # Create record before send message to add tracking pixel into the message content
             record = Record(
-                from_=self._from.email, to=to, content=message.mroot.as_string()
+                from_=self._from.email,
+                to=to,
+                content=message.mroot.as_string(),
+                token=self._token,
             )
             with self._db.get_session() as session:
                 add_record(record, session)

@@ -10,11 +10,16 @@ from dataclasses import dataclass
 class Base(SQLModel, registry=registry()):
     pass
 
+class Account(Base, table=True):
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    email: EmailStr = Field(index=True)
+    creds: str
 
 @dataclass
 class SQLiteAccountsDBInterface(DBProtocol):
     db_path = config.config_dir / config.db.name
     connect_args = {"check_same_thread": False}
+    s = None
 
     def __post_init__(self):
         self.create_engine()
@@ -30,23 +35,24 @@ class SQLiteAccountsDBInterface(DBProtocol):
         Base.metadata.create_all(self._engine)
 
     def get_session(self):
-        return Session(self._engine)
+        if self.s is not None:
+            return self.s
+        self.s = Session(self._engine)
+        return self.s 
 
+    def reset_session(self):
+        self.s = None
+        return self.get_session()
 
-class Account(Base, table=True):
-    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
-    email: EmailStr = Field(index=True)
-    creds: str
+    def save_creds_to_db(self, token_data: str, email: EmailStr):
+        # check existing entry in db
+        session = self.get_session()
+        stmt = select(Account).where(Account.email == email)
+        acc = session.exec(stmt).first()
+        if acc:
+            acc.creds = token_data
+        else:
+            acc = Account(email=email, creds=token_data)
 
-
-def save_token_to_db(token_data: str, email: EmailStr, session: Session):
-    # check existing entry in db
-    stmt = select(Account).where(Account.email == email)
-    acc = session.exec(stmt).first()
-    if acc:
-        acc.creds = token_data
-    else:
-        acc = Account(email=email, creds=token_data)
-
-    session.add(acc)
-    session.commit()
+        session.add(acc)
+        session.commit()

@@ -19,7 +19,7 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 # import .utils.validators as validators
 from ..utils import validators
 from ..settings import GmailSettings
-from ..db.accounts import SQLiteAccountsDBInterface, Account, save_token_to_db
+from ..db.accounts import SQLiteAccountsDBInterface, Account
 from ..db.db_protocol import DBProtocol
 from .message import Message
 from .errors import AccountNotFoundOnDB
@@ -225,7 +225,5 @@ def save_token(
         with to_file.open(mode="w") as token_file:
             token_file.write(token_data)
     elif to_db:
-        with db.get_session() as session:
-            email = to_db
-
-            save_token_to_db(token_data, email, session)
+        email = to_db
+        save_creds_to_db(token_data, email)

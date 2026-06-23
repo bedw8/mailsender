@@ -15,6 +15,7 @@ from io import BytesIO
 
 from mailsender import Sender, Message
 import json
+from mailsender.api.router.auth import token_dep
 from mailsender.lib.errors import AccountNotFoundOnDB, UnsubscribedAddress
 
 router = APIRouter()
@@ -45,6 +46,8 @@ async def send_email(
     file: list[UploadFile] | None = None,
     # file_name: Annotated[str | None, Form()] = None,
     fields: Annotated[dict[str, str], Depends(parse_data)] = {},
+    *,
+    token: token_dep,
 ):
     email = locals()
 
@@ -66,7 +69,7 @@ async def send_email(
         i_attach = None
 
     try:
-        sender = Sender(from_address=sender,db_account=db_account)
+        sender = Sender(from_address=sender,account=db_account, token=token, verify_token=False)
     except AccountNotFoundOnDB as e:
         raise HTTPException(status_code=404, detail=str(e))
 

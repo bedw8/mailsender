@@ -1,17 +1,19 @@
-from sqlmodel import SQLModel, Field, create_engine, Session
+from typing import Annotated
+from fastapi import Query
+from sqlmodel import SQLModel, Field, create_engine, Session, select
 from pydantic import EmailStr
 from ..settings import config
 from datetime import datetime
 from smalluuid import SmallUUID
-from sqlalchemy.orm import registry
+from sqlalchemy.orm import load_only, registry
 from .db_protocol import DBProtocol
 from dataclasses import dataclass
 from ..lib.errors import (
     AlreadyUnsubscribed,
+    RecordColumnNotFound,
     RecordNotFound,
     NotUnsubscribed,
 )
-
 
 # For multiple DB management
 class Base(SQLModel, registry=registry()):
@@ -45,8 +47,10 @@ class Record(Base, table=True):
     mid: str = Field(default_factory=lambda: SmallUUID().small, primary_key=True)
     from_: EmailStr = Field(alias="from")
     to: EmailStr
+    subject: str
     content: str
     sent_at: datetime = Field(default_factory=datetime.now)
+    token: str 
 
 
 class Track(Base, table=True):
@@ -62,6 +66,28 @@ class UnsubscribedEmail(Base, table=True):
     date: datetime = Field(default_factory=datetime.now)
     comment: str | None = None
 
+
+def list_records(session: Session, 
+                 q: list[str] = [],
+                 to: list[str] = [],
+                 from_: list[str] = [],
+                 limit: int | None = None
+     ):
+    stmt = select(Record)
+    for col in q:
+        try:
+            stmt = stmt.options(load_only(getattr(Record,col)))
+        except AttributeError as e:
+            raise RecordColumnNotFound(col)
+    if to:
+        stmt = stmt.where(Record.to.in_(to))
+    if from_:
+        stmt = stmt.where(Record.from_.in_(from_))
+    if limit:
+        stmt = stmt.limit(limit)
+    stmt = stmt.order_by(Record.sent_at.desc())
+    recs = session.exec(stmt).all()
+    return recs
 
 def add_record(record: Record, session: Session):
     session.add(record)
