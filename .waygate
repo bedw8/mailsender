@@ -1,0 +1,4 @@
+WAYGATE_BACKEND=file
+WAYGATE_FILE_PATH=waygate-state.json
+WAYGATE_ENV=dev
+WAYGATE_SERVER_URL=http://localhost:8000/waygate
