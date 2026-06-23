@@ -28,9 +28,6 @@ from .router import tracking
 from .router import unsubs
 from .router import records 
 
-
-logger.info(config)
-
 static_path = resources.files("mailsender.api").joinpath("static")
 
 app = FastAPI()
