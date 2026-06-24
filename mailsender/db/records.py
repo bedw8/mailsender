@@ -48,7 +48,7 @@ class Record(Base, table=True):
     from_: EmailStr = Field(alias="from")
     to: EmailStr
     subject: str
-    content: str
+    content: str = ""
     sent_at: datetime = Field(default_factory=datetime.now)
     token: str 
 
@@ -103,12 +103,12 @@ def get_record(mid: str, session: Session):
 
 
 def add_track(track: Track, session: Session):
-    # if session.get(Track, track.mid) is not None:
-    #     return
+    if session.get(Record, track.mid) is None:
+        return False
 
     session.add(track)
     session.commit()
-
+    return True
 
 def unsubscribe(email: EmailStr, session: Session):
     if get_unsubscribed(email, session):
