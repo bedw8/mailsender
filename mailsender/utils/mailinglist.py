@@ -10,7 +10,7 @@ footer = """<div></div><div style="margin-top: 10px; padding:16px; background-co
             <td align="center" style="padding:16px 20px;">
                 <p style="margin:0; color:#777777; font-size:12px; line-height:18px;">
                     Si ya no quieres recibir estos correos, puedes
-                    <a href="{{trackingURL}}/ml/unsubscribe?mid={{mid}}" style="color:#555555; text-decoration:underline; font-size:12px; line-height:18px;">
+                    <a href="{{us_link}}" style="color:#555555; text-decoration:underline; font-size:12px; line-height:18px;">
                         darte de baja aquí
                     </a>.
                 </p>
@@ -23,11 +23,14 @@ footer = """<div></div><div style="margin-top: 10px; padding:16px; background-co
 env = Environment()
 template = env.from_string(footer)
 
-
-def add_unsubs_footer(mssg: Message, mid: str, trackingURL: str = config.trackingURL):
+def gen_us_link(mid: str, trackingURL: str = config.trackingURL):
     if "://" not in trackingURL:
         trackingURL = "http://" + trackingURL
+    return f"{trackingURL}/ml/unsubscribe?mid={mid}"
 
-    output = template.render(trackingURL=trackingURL, mid=mid)
+
+def add_unsubs_footer(mssg: Message, mid: str, trackingURL: str = config.trackingURL):
+    us_link = gen_us_link(mid=mid,trackingURL=trackingURL)
+    output = template.render(us_link=us_link)
 
     append(mssg, output)

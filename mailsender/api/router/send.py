@@ -7,6 +7,7 @@ from fastapi import (
     File,
     UploadFile,
     Depends,
+    Query,
 )
 from fastapi.encoders import jsonable_encoder
 from pydantic import EmailStr, NameEmail
@@ -46,6 +47,9 @@ async def send_email(
     file: list[UploadFile] | None = None,
     # file_name: Annotated[str | None, Form()] = None,
     fields: Annotated[dict[str, str], Depends(parse_data)] = {},
+    us_footer: Annotated[bool, Query()] = True,
+    us_link: Annotated[bool, Query()] = False,
+    tracking: Annotated[bool, Query()] = True,
     *,
     token: token_dep,
 ):
@@ -83,7 +87,13 @@ async def send_email(
     )
 
     try:
-        record = sender.send(to, mssg)
+        record = sender.send(
+                to=to, 
+                message=mssg,
+                us_footer=us_footer,
+                us_link=us_link,
+                tracking=tracking,
+                )
         email["mid"] = record.mid
     except UnsubscribedAddress as e:
         raise HTTPException(status_code=409, detail=str(e))

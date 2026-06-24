@@ -6,7 +6,8 @@ from mailsender.db.token import SQLiteTokenDBInterface
 from .gmail import GoogleAPIService
 from ..utils import validators as validators
 from ..utils.tracking import add_pixel
-from ..utils.mailinglist import add_unsubs_footer
+from ..utils.mailinglist import add_unsubs_footer, gen_us_link
+from ..utils.replace import replace
 
 from .message import Message
 from .service import EmailService
@@ -83,7 +84,11 @@ class Sender:
         self,
         to: EmailStr,
         message: InstanceOf[Message],
+        us_footer: bool = True,
+        us_link: bool = False,
+        tracking: bool = True,
     ):
+        message = message # 
         message.sender = self._from
         message.to = to
 
@@ -94,7 +99,7 @@ class Sender:
                 if get_unsubscribed(to, session):
                     raise UnsubscribedAddress(str(to))
 
-            # Create record before send message to add tracking pixel into the message content
+        # Create record before send message to add tracking pixel into the message content
             record = Record(
                 from_=self._from.email,
                 to=to,
@@ -102,11 +107,15 @@ class Sender:
                 # content=message.mroot.as_string(),
                 token=self._token,
             )
-            with self._db.get_session() as session:
-                add_record(record, session)
 
+            if tracking:
                 add_pixel(message, mid=record.mid)
+            if us_footer:
                 add_unsubs_footer(message, mid=record.mid)
+            if us_link:
+                _us_link = gen_us_link(mid=record.mid)
+                replace(message,key="us_link",value=_us_link)
+
 
         send_message = (
             self.service.service.users()
@@ -117,6 +126,10 @@ class Sender:
 
         if "SENT" not in send_message["labelIds"]:
             warnings.warn(f"Email not sent to {email}")
+        elif (self._db._engine is not None) and (record is not None):
+            with self._db.get_session() as session:
+                add_record(record, session)
+
         if (self._i + 1) % self._max_emails == 0:
             warnings.warn(f"Pausing for 1 second after sending {self._i + 1} emails")
             sleep(1)
