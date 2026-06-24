@@ -98,7 +98,8 @@ class Sender:
             record = Record(
                 from_=self._from.email,
                 to=to,
-                content=message.mroot.as_string(),
+                subject=message.mroot['Subject'],
+                # content=message.mroot.as_string(),
                 token=self._token,
             )
             with self._db.get_session() as session:
