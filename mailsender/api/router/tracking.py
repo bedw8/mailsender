@@ -37,6 +37,6 @@ async def send_email(
     session: Annotated[Session, Depends(get_session)],
 ):
     track = Track(mid=mid)
-    add_track(track, session)
+    status_code = 200 if add_track(track, session) else 404
 
-    return Response(content=PIXEL_GIF, media_type="image/gif", headers=headers)
+    return Response(content=PIXEL_GIF, media_type="image/gif", headers=headers, status_code=status_code)
