@@ -1,10 +1,12 @@
 from typing import Annotated
 from fastapi import APIRouter, Form, Depends, Request, HTTPException
 from fastapi.responses import HTMLResponse
-from mailsender.lib.errors import AlreadyUnsubscribed, RecordNotFound, NotUnsubscribed
+from mailsender.api.router.auth import token_dep
+from mailsender.lib.errors import AlreadyUnsubscribed, CampaignNotFound, RecordNotFound, NotUnsubscribed
 
 from mailsender.db.records import (
     PgRecordsDBInterface,
+    list_unsubs,
     unsubscribe_from_record,
     resubscribe_from_record,
     add_comment_from_record,
@@ -33,8 +35,20 @@ templates = Jinja2Templates(directory=static_path)
 
 router = APIRouter()
 
+@router.get("/list")
+async def unsubs(
+    campaign: int | None = None,
+    *,
+    session: Annotated[Session, Depends(get_session)],
+    token: token_dep,
+    ):
+    try:
+        return list_unsubs(camp_id=campaign,session=session)
+    except CampaignNotFound as e:
+        raise HTTPException(status_code=404, detail=str(e))
 
-@router.get("/unsubscribe", response_class=HTMLResponse)
+
+@router.get("/unsubscribe")
 async def remove_from_maillist(
     request: Request,
     mid: str,
@@ -48,10 +62,11 @@ async def remove_from_maillist(
             context={"mid": mid, "email": email},
         )
     except AlreadyUnsubscribed as e:
-        # return HTTPException(status_code=409, detail=str(e))
+        raise HTTPException(status_code=409, detail=str(e))
+        # return HTTPException(status_code=409, detail='llaala')
         pass
     except RecordNotFound as e:
-        return HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(status_code=404, detail=str(e))
 
 
 @router.get("/resubscribe")
@@ -66,10 +81,9 @@ async def add_to_maillist(
             request=request, name="resubscribed.html", context={"email": email}
         )
     except NotUnsubscribed as e:
-        # return HTTPException(status_code=409, detail=str(e))
-        pass
+        return HTTPException(status_code=409, detail=str(e))
     except RecordNotFound as e:
-        return HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(status_code=404, detail=str(e))
 
 
 @router.post("/unsubscribe/comment")
@@ -82,6 +96,6 @@ async def add_comment(
     try:
         add_comment_from_record(mid, comments, session)
     except RecordNotFound as e:
-        return HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(status_code=404, detail=str(e))
 
     return templates.TemplateResponse(request=request, name="comments-sent.html")

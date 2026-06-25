@@ -17,7 +17,7 @@ from io import BytesIO
 from mailsender import Sender, Message
 import json
 from mailsender.api.router.auth import token_dep
-from mailsender.lib.errors import AccountNotFoundOnDB, UnsubscribedAddress
+from mailsender.lib.errors import AccountNotFoundOnDB, CampaignNotFound, UnsubscribedAddress
 
 router = APIRouter()
 
@@ -47,6 +47,7 @@ async def send_email(
     file: list[UploadFile] | None = None,
     # file_name: Annotated[str | None, Form()] = None,
     fields: Annotated[dict[str, str], Depends(parse_data)] = {},
+    campaign: Annotated[int | None, Form()] = None,
     us_footer: Annotated[bool, Query()] = True,
     us_link: Annotated[bool, Query()] = False,
     tracking: Annotated[bool, Query()] = True,
@@ -93,10 +94,13 @@ async def send_email(
                 us_footer=us_footer,
                 us_link=us_link,
                 tracking=tracking,
+                campaign=campaign,
                 )
         email["mid"] = record.mid
     except UnsubscribedAddress as e:
         raise HTTPException(status_code=409, detail=str(e))
+    except CampaignNotFound as e:
+        raise HTTPException(status_code=404, detail=str(e))
 
     del email['mssg'] 
     return email
