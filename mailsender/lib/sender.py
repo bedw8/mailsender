@@ -1,7 +1,7 @@
 # External libraries
 from time import sleep
 
-from mailsender.db.token import SQLiteTokenDBInterface
+from mailsender.db.token import SQLiteTokenDBInterface, Token
 
 from .gmail import GoogleAPIService
 from ..utils import validators as validators
@@ -37,7 +37,7 @@ class Sender:
         self,
         from_address: NameEmail,
         account: EmailStr | None = None,
-        token: str | None = None,
+        token: str | Token | None = None,
         verify_token: bool = False,
         *,
         service: SkipValidation[EmailService] | None = None,
@@ -56,7 +56,7 @@ class Sender:
         self._token_db = token_db
 
         if verify_token and token_db:
-            self._token_db.verify_token(self._token) # if invalid, raise exception
+            self._token_db.validate_token(self._token) # if invalid, raise exception
 
         self._from = from_address
         self._account = self._from.email if not account else account
