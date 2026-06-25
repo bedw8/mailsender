@@ -9,12 +9,17 @@ class AccountNotFoundOnDB(Exception):
 
 
 class AlreadyUnsubscribed(Exception):
-    def __init__(self, email: str,campaign_name: str, date: datetime | None = None):
+    def __init__(self, email: str, campaign_name: str| None = None, date: datetime | None = None):
         mssg = " already unsubscribed."
         if date:
-            mssg = f" unsubscribed on {format_date(date)}"
+            mssg = f"unsubscribed on {format_date(date)}"
+        
+        if campaign_name is not None:
+            camp = f"campaign {campaign_name}"
+        else:
+            camp = "default campaign"
 
-        super().__init__(f"Email: {email}" + mssg+ f" for campaign {campaign_name}" )
+        super().__init__(f"Email: {email}" + mssg+ f" for {camp}.")
 
 
 class RecordNotFound(Exception):
@@ -27,13 +32,18 @@ class RecordColumnNotFound(Exception):
 
 
 class UnsubscribedAddress(Exception):
-    def __init__(self, email: str, campaign_name: str):
-        super().__init__(f"Email: {email} is unsubscribed of campaign {campaign_name}.")
+    def __init__(self, email: str, campaign_name: str | None):
+        if campaign_name is not None:
+            name = f"campaign {campaign_name}"
+        else:
+            name = f"default campaign" 
+
+        super().__init__(f"Email: {email} is unsubscribed for {name}.")
 
 
 class NotUnsubscribed(Exception):
     def __init__(self, email: str, campaign_name: str):
-        super().__init__(f"Email: {email} is not unsubscribed to campaign {campaign_name}.")
+        super().__init__(f"Email: {email} is not unsubscribed to campaign {repr(campaign_name)}.")
 
 class TokenNotFound(Exception):
     def __init__(self, token: str):
@@ -46,4 +56,12 @@ class InvalidCredentials(Exception):
 class TokenAlreadyExists(Exception):
     def __init__(self, name: str):
         super().__init__(f"Token with name: {name} already exists.")
+
+class CampaignAlreadyExists(Exception):
+    def __init__(self, name: str):
+        super().__init__(f"Campaign with name: {repr(name)} already exists.")
+
+class CampaignNotFound(Exception):
+    def __init__(self, id: int):
+        super().__init__(f"Campaign with id: {repr(id)} does not exist.")
 

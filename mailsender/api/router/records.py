@@ -6,7 +6,7 @@ from mailsender.db.records import Record, Track, PgRecordsDBInterface, add_track
 from sqlmodel import Session
 
 from mailsender.lib.errors import RecordColumnNotFound
-
+from pydantic import BaseModel
 
 def get_session():
     db = PgRecordsDBInterface()
@@ -16,21 +16,27 @@ def get_session():
 
 router = APIRouter()
 
+class RecordQueryParams(BaseModel):
+    q: list[str] = []
+    to: list[str] = []
+    from_: Annotated[list[str], Query(alias='from')] = []
+    limit: int | None = None
+    campaign: int | None = None
+    subject: str | None = None
+
+
 @router.get("/records", 
             # response_model=list[Record],
             # response_model_exclude_unset=True
 )
 async def records(
     session: Annotated[Session, Depends(get_session)],
-    q: Annotated[list[str], Query()] = [],
-    to: Annotated[list[str], Query()] = [],
-    from_: Annotated[list[str], Query(alias='from')] = [],
-    limit: int | None = None,
+    params: Annotated[RecordQueryParams, Query()],
     *,
     token: token_dep,
 ):
     try:
-        recs = list_records(session,q,to,from_)
+        recs = list_records(session,**params.model_dump())
         return recs
     except RecordColumnNotFound as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
