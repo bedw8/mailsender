@@ -17,6 +17,7 @@ from io import BytesIO
 from mailsender import Sender, Message
 import json
 from mailsender.api.router.auth import token_dep
+from mailsender.db.token import Token
 from mailsender.lib.errors import AccountNotFoundOnDB, CampaignNotFound, UnsubscribedAddress
 
 router = APIRouter()
@@ -74,6 +75,8 @@ async def send_email(
         i_attach = None
 
     try:
+        if isinstance(token, Token):
+            token = token.id
         sender = Sender(from_address=sender,account=db_account, token=token, verify_token=False)
     except AccountNotFoundOnDB as e:
         raise HTTPException(status_code=404, detail=str(e))
