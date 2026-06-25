@@ -27,6 +27,7 @@ from .router import send
 from .router import tracking
 from .router import unsubs
 from .router import records 
+from .router import campaign
 
 static_path = resources.files("mailsender.api").joinpath("static")
 
@@ -43,6 +44,7 @@ app.include_router(send.router)
 app.include_router(tracking.router)
 app.include_router(unsubs.router, prefix="/ml")
 app.include_router(records.router)
+app.include_router(campaign.router)
 
 
 

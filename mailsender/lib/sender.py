@@ -26,7 +26,7 @@ from pydantic import (
 import warnings
 from ..settings import Settings
 from ..db.db_protocol import DBProtocol
-from ..db.records import Campaign, PgRecordsDBInterface, Record, add_record, get_campaign, is_unsubscribed
+from ..db.records import Campaign, PgRecordsDBInterface, Record, add_record, get_campaign, get_unsub, list_unsubs
 from .errors import UnsubscribedAddress
 
 
@@ -87,7 +87,7 @@ class Sender:
         us_footer: bool = True,
         us_link: bool = False,
         tracking: bool = True,
-        campaign: int | Campaign | None = None,
+        campaign: int |  None = None,
     ):
         message = message # 
         message.sender = self._from
@@ -96,31 +96,28 @@ class Sender:
         record = None
         if self._db._engine is not None:
             with self._db.get_session() as session:
-                campaign = get_campaign(campaign=campaign,
-                                    address=self._from.email,
-                                    session=session)
+                # campaign = get_campaign(campaign=campaign,
+                #                     session=session)
                 
-                if len(is_unsubscribed(email=to,
-                                   campaign=campaign,
-                                   session=session))>0:
-                    raise UnsubscribedAddress(email=str(to),campaign_name=campaign.name)
+                # if len(get_unsub(email=to,
+                #                    campaign=campaign,
+                #                    session=session))>0:
+                unsubs=list_unsubs(email=to,camp_id=campaign,session=session)
+                if len(unsubs)>0:
+                    camp = unsubs[0].campaign
+                    name = None if camp is None else camp.name
+                    raise UnsubscribedAddress(email=str(to),
+                                              campaign_name=name
+                                              )
 
-                # Create record before send message to add tracking pixel into the message content
-                record = Record(
-                    from_=self._from.email, 
-                    to=to, 
-                    subject=message.mroot["Subject"],
-                    content=message.mroot.as_string(),
-                    campaign=campaign,
-                )
-
-        # Create record before send message to add tracking pixel into the message content
+            # Create record before send message to add tracking pixel into the message content
             record = Record(
                 from_=self._from.email,
                 to=to,
                 subject=message.mroot['Subject'],
                 # content=message.mroot.as_string(),
                 token=self._token,
+                campaign_id=campaign,
             )
 
             if tracking:
