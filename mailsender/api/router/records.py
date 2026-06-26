@@ -20,7 +20,7 @@ class RecordQueryParams(BaseModel):
     q: list[str] = []
     to: list[str] = []
     from_: Annotated[list[str], Query(alias='from')] = []
-    limit: int | None = None
+    limit: int | None = 10
     campaign: int | None = None
     subject: str | None = None
 

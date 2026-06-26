@@ -76,7 +76,7 @@ async def send_email(
 
     try:
         if isinstance(token, Token):
-            token = token.id
+            token = token.model_dump(mode='json')['id']
         sender = Sender(from_address=sender,account=db_account, token=token, verify_token=False)
     except AccountNotFoundOnDB as e:
         raise HTTPException(status_code=404, detail=str(e))

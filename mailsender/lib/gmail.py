@@ -226,4 +226,4 @@ def save_token(
             token_file.write(token_data)
     elif to_db:
         email = to_db
-        save_creds_to_db(token_data, email)
+        db.save_creds_to_db(token_data, email)
