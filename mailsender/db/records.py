@@ -87,7 +87,7 @@ def list_records(session: Session,
                  q: list[str] = [],
                  to: list[str] = [],
                  from_: list[str] = [],
-                 limit: int | None = None,
+                 limit: int | None = 10,
                  campaign: int | None = None,
                  subject: str | None = None,
      ):
