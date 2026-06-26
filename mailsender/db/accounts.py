@@ -51,6 +51,13 @@ class SQLiteAccountsDBInterface(DBProtocol):
         stmt = select(Account).where(Account.email == email)
         acc = session.exec(stmt).first()
         if acc:
+            creds = json.loads(acc.creds)
+            r_key = 'refresh_token'
+            refresh =  creds[r_key] if r_key in creds else None
+            if refresh:
+                new_creds = json.loads(token_data)
+                new_creds.update({r_key:refresh})
+                token_data = json.dumps(new_creds)
             acc.creds = token_data
         else:
             acc = Account(email=email, creds=token_data)
