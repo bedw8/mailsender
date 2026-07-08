@@ -1,7 +1,16 @@
 from typing import Annotated
-from fastapi import APIRouter, Response, Depends
+from fastapi import APIRouter, Query, Response, Depends
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel, model_validator
 
-from mailsender.db.records import Track, PgRecordsDBInterface, add_track
+from mailsender.db.records import (
+    Track,
+    PgRecordsDBInterface,
+    add_track,
+    list_trackings,
+    TrackingQueryParams,
+)
+from mailsender.api.router.auth import token_dep
 from sqlmodel import Session
 
 
@@ -29,6 +38,19 @@ headers = {
 
 
 @router.get(
+    "/tracking",
+)
+async def tracking(
+    params: Annotated[TrackingQueryParams, Query()],
+    session: Annotated[Session, Depends(get_session)],
+    token: token_dep,
+):
+    t = list_trackings(params=params, session=session)
+
+    return JSONResponse(t)
+
+
+@router.get(
     "/pixel.gif",
     response_model=None,
 )
@@ -39,4 +61,9 @@ async def send_email(
     track = Track(mid=mid)
     status_code = 200 if add_track(track, session) else 404
 
-    return Response(content=PIXEL_GIF, media_type="image/gif", headers=headers, status_code=status_code)
+    return Response(
+        content=PIXEL_GIF,
+        media_type="image/gif",
+        headers=headers,
+        status_code=status_code,
+    )
