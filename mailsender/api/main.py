@@ -1,6 +1,11 @@
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
-from fastapi.exception_handlers import request_validation_exception_handler, http_exception_handler
+from fastapi.exception_handlers import (
+    request_validation_exception_handler,
+    http_exception_handler,
+)
+from fastapi.responses import JSONResponse
+from fastapi.encoders import jsonable_encoder
 
 from mailsender import Settings
 from importlib import resources
@@ -26,12 +31,24 @@ from .router import auth
 from .router import send
 from .router import tracking
 from .router import unsubs
-from .router import records 
+from .router import records
 from .router import campaign
 
 static_path = resources.files("mailsender.api").joinpath("static")
 
 app = FastAPI()
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    msgs = [e["msg"] for e in exc.errors()]
+    if len(msgs) == 1:
+        msgs = msgs[0]
+
+    return JSONResponse(
+        status_code=400,
+        content=jsonable_encoder({"detail": msgs}),
+    )
 
 
 app.add_middleware(HTTPSSchemeMiddleware)
@@ -45,6 +62,3 @@ app.include_router(tracking.router)
 app.include_router(unsubs.router, prefix="/ml")
 app.include_router(records.router)
 app.include_router(campaign.router)
-
-
-
