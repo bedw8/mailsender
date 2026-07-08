@@ -1,11 +1,21 @@
 from typing import Annotated, Literal
 from fastapi import Query
-from sqlmodel import SQLModel, Field, create_engine, Session, Relationship, select, col, exists
-from pydantic import EmailStr
+from sqlmodel import (
+    SQLModel,
+    Field,
+    create_engine,
+    Session,
+    Relationship,
+    select,
+    col,
+    exists,
+)
+from pydantic import BaseModel, EmailStr, model_validator
 from ..settings import config
 from datetime import datetime
 from smalluuid import SmallUUID
 from sqlalchemy.orm import load_only, registry
+from sqlalchemy import func
 from .db_protocol import DBProtocol
 from dataclasses import dataclass
 from ..lib.errors import (
@@ -16,6 +26,7 @@ from ..lib.errors import (
     RecordNotFound,
     NotUnsubscribed,
 )
+
 
 # For multiple DB management
 class Base(SQLModel, registry=registry()):
@@ -43,19 +54,21 @@ class PgRecordsDBInterface(DBProtocol):
     def get_session(self):
         return Session(self._engine)
 
+
 class Campaign(Base, table=True):
     __tablename__ = "campaigns"
     id: int | None = Field(default=None, primary_key=True)
     address: EmailStr | None = None
-    name: str = Field(index=True,unique=True)
+    name: str = Field(index=True, unique=True)
     unsubs: list["UnsubscribedEmail"] = Relationship(back_populates="campaign")
-    records: list["Record"] = Relationship( back_populates="campaign")
+    records: list["Record"] = Relationship(back_populates="campaign")
+
 
 class Record(Base, table=True):
     __tablename__ = "records"
     mid: str = Field(default_factory=lambda: SmallUUID().small, primary_key=True)
     from_: EmailStr = Field(alias="from")
-    token: str 
+    token: str
     to: EmailStr
     subject: str
     content: str = ""
@@ -75,26 +88,27 @@ class Track(Base, table=True):
 
 class UnsubscribedEmail(Base, table=True):
     __tablename__ = "unsubscribed"
-    id: int | None = Field(default=None,primary_key=True)
-    email: EmailStr 
+    id: int | None = Field(default=None, primary_key=True)
+    email: EmailStr
     date: datetime = Field(default_factory=datetime.now)
     comment: str | None = None
     campaign_id: int | None = Field(foreign_key="campaigns.id")
     campaign: Campaign | None = Relationship(back_populates="unsubs")
 
 
-def list_records(session: Session, 
-                 q: list[str] = [],
-                 to: list[str] = [],
-                 from_: list[str] = [],
-                 limit: int | None = 10,
-                 campaign: int | None = None,
-                 subject: str | None = None,
-     ):
+def list_records(
+    session: Session,
+    q: list[str] = [],
+    to: list[str] = [],
+    from_: list[str] = [],
+    limit: int | None = 10,
+    campaign: int | None = None,
+    subject: str | None = None,
+):
     stmt = select(Record)
     for col in q:
         try:
-            stmt = stmt.options(load_only(getattr(Record,col)))
+            stmt = stmt.options(load_only(getattr(Record, col)))
         except AttributeError as e:
             raise RecordColumnNotFound(col)
     if to:
@@ -110,6 +124,7 @@ def list_records(session: Session,
     stmt = stmt.order_by(Record.sent_at.desc())
     recs = session.exec(stmt).all()
     return recs
+
 
 def add_record(record: Record, session: Session):
     session.add(record)
@@ -132,15 +147,18 @@ def add_track(track: Track, session: Session):
     session.commit()
     return True
 
+
 def unsubscribe(email: EmailStr, campaign: int | None, session: Session):
     unsub = list_unsubs(email, campaign, session=session)
     if unsub:
         unsub = unsub[0]
-        camp_name = None if unsub.campaign is None else unsub.campaign.name 
+        camp_name = None if unsub.campaign is None else unsub.campaign.name
         raise AlreadyUnsubscribed(email, camp_name)
 
-    camp = get_campaign(campaign, session=session) 
-    email = UnsubscribedEmail(email=email, campaign_id=None if camp is None else camp.id)
+    camp = get_campaign(campaign, session=session)
+    email = UnsubscribedEmail(
+        email=email, campaign_id=None if camp is None else camp.id
+    )
 
     session.add(email)
     session.commit()
@@ -165,20 +183,17 @@ def resubscribe(email: UnsubscribedEmail, session: Session):
     return email.email
 
 
-def get_unsub(email: EmailStr, 
-                    campaign: int | Campaign | None,
-                    session: Session
-                    ):
-    
+def get_unsub(email: EmailStr, campaign: int | Campaign | None, session: Session):
+
     stmt = select(UnsubscribedEmail).where(UnsubscribedEmail.email == email)
-    
+
     if isinstance(campaign, Campaign):
-        camp = campaign 
+        camp = campaign
     elif isinstance(campaign, int):
         camp = session.get(Campaign, campaign)
     else:
         raise CampaignNotFound(id=id)
-    
+
     if camp:
         stmt = stmt.where(UnsubscribedEmail.campaign == camp)
 
@@ -209,48 +224,54 @@ def add_comment_from_record(record: Record | str, comment: str, session: Session
     if isinstance(record, str):
         record = get_record(record, session)
 
-    email = get_unsubscribed(email=record.to, 
-                             campaign=record.campaign_id,
-                             session=session)
+    email = get_unsubscribed(
+        email=record.to, campaign=record.campaign_id, session=session
+    )
     add_comment(email, comment, session)
-
 
 
 def new_campaign(camp: Campaign, session: Session):
     exists = get_campaign(campaign=None, name=camp.name, session=session)
     if exists:
         raise CampaignAlreadyExists(camp.name)
-    
+
     session.add(camp)
     session.commit()
     session.refresh(camp)
 
     return camp
 
+
 def del_campaign(camp: Campaign, session: Session):
     session.delete(camp)
     session.commit()
 
+
 def campaign_exists(id: int, session: Session):
     # stmt = select(Campaign).where(Campaign.id==id).exists()
-    stmt = select(exists(Campaign)).where(Campaign.id==id)
-    if x:=session.exec(stmt).first():
+    stmt = select(exists(Campaign)).where(Campaign.id == id)
+    if x := session.exec(stmt).first():
         return x
     raise CampaignNotFound(id=id)
 
-def get_campaign(campaign: int | None, 
-                 name: str | None = None,
-                 *,
-                 session: Session,
-                 ):
+
+def get_campaign(
+    campaign: int | None,
+    name: str | None = None,
+    *,
+    session: Session,
+):
     if name:
         return session.exec(select(Campaign.name == name)).first()
     if campaign:
         return session.get(Campaign, campaign)
 
-def list_campaigns(address: EmailStr | None | Literal["none"] == None, session: Session):
+
+def list_campaigns(
+    address: EmailStr | None | Literal["none"] == None, session: Session
+):
     stmt = select(Campaign)
-    
+
     if address == "none":
         stmt = stmt.where(Campaign.address.is_(None))
     elif address:
@@ -259,17 +280,23 @@ def list_campaigns(address: EmailStr | None | Literal["none"] == None, session: 
     camps = session.exec(stmt).all()
     return camps
 
-def list_unsubs(email: EmailStr | None = None, camp_id: int | list[int] | None = None, *,session: Session):
+
+def list_unsubs(
+    email: EmailStr | None = None,
+    camp_id: int | list[int] | None = None,
+    *,
+    session: Session,
+):
     stmt = select(UnsubscribedEmail)
     if isinstance(camp_id, int):
         camp_id = [camp_id]
 
     if camp_id:
         for id in camp_id:
-            campaign_exists(id,session)
+            campaign_exists(id, session)
 
         stmt = stmt.where(col(UnsubscribedEmail.campaign_id).in_(camp_id))
-    
+
     if email:
         stmt = stmt.where(UnsubscribedEmail.email == email)
 
@@ -277,22 +304,70 @@ def list_unsubs(email: EmailStr | None = None, camp_id: int | list[int] | None =
 
     return unsubs
 
-def list_trackings(sender: EmailStr | None = None, subject: str | None = None, campaign_id: int | None = None,*, session: Session):
 
-    stmt = select(Track)
-    ## select(Track.id, Track.mid, Record.from_, Record.to, Record.subject , Track.opened_at).join()
-    if sender:
-        stmt = stmt.where(Track.record.has(Record.from_ == sender))
-    if subject:
-        stmt = stmt.where(Track.record.has(Record.subject == subject))
-    if campaign_id:
-        stmt = stmt.where(Track.record.has(Record.campaign_id == campaign_id))
+class TrackingQueryParams(BaseModel):
+    mid: str | None = None
+    sender: str | None = None
+    to: str | None = None
+    subject: str | None = None
+    campaign_id: int | None = None
 
+    # @model_validator(mode="before")
+    # @classmethod
+    # def not_all_none(cls, data):
+    #     if isinstance(data, dict):
+    #         notnone = sum(map(lambda x: x is not None, data.values()))
+    #         if notnone == 0:
+    #             raise ValueError(
+    #                 f"Some of {', '.join([repr(x) for x in ['mid', ''sender', 'subject', 'campaign_id']])} must be not non-null."
+    #             )
+    #     return data
+
+
+def list_trackings(
+    params: TrackingQueryParams,
+    *,
+    session: Session,
+):
+
+    opened_at = None
+    stmt = select(
+        Track.mid,
+        Record.to,
+        Record.from_.label("from"),
+        func.count(Track.mid),
+        Record.sent_at,
+        Record.subject,
+        Record.campaign_id,
+        func.min(Track.opened_at).label("first_open"),
+        func.max(Track.opened_at).label("last_open"),
+    ).join(Record, Track.mid == Record.mid)
+    if params.mid:
+        stmt = stmt.where(Track.mid == params.mid)
+        opened_at = select(Track.opened_at).where(Track.mid == params.mid)
+    else:
+        if params.to:
+            stmt = stmt.where(Record.to == params.to)
+        if params.sender:
+            stmt = stmt.where(Record.from_ == params.sender)
+        if params.subject:
+            stmt = stmt.where(Record.subject == params.subject)
+        if params.campaign_id:
+            stmt = stmt.where(Record.campaign_id == params.campaign_id)
+
+    stmt = stmt.group_by(Track.mid, Record.mid)
     trackings = session.exec(stmt).all()
 
-    return trackings
-    
+    resp = [
+        {
+            k: v.strftime("%Y-%m-%d %H:%M:%S") if isinstance(v, datetime) else v
+            for k, v in t._asdict().items()
+        }
+        for t in trackings
+    ]
 
-
-    
-
+    if opened_at is not None:
+        oat = session.exec(opened_at).all()
+        oat = [t.strftime("%Y-%m-%d %H:%M:%S") for t in oat]
+        resp[0]["opened_at"] = oat
+    return resp
