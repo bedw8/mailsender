@@ -1,12 +1,12 @@
-FROM python:3.13-slim-trixie
+FROM linuxcontainers/debian-slim
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
 WORKDIR /app
 ENV PYTHONPATH=/app
 
 COPY ./pyproject.toml ./uv.lock ./.python-version /app/
-RUN uv sync
-
+RUN --mount=type=cache,target=/root/.cache/uv \
+  uv sync
 
 COPY mailsender/ /app/mailsender
 
