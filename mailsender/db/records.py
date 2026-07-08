@@ -312,16 +312,16 @@ class TrackingQueryParams(BaseModel):
     subject: str | None = None
     campaign_id: int | None = None
 
-    # @model_validator(mode="before")
-    # @classmethod
-    # def not_all_none(cls, data):
-    #     if isinstance(data, dict):
-    #         notnone = sum(map(lambda x: x is not None, data.values()))
-    #         if notnone == 0:
-    #             raise ValueError(
-    #                 f"Some of {', '.join([repr(x) for x in ['mid', ''sender', 'subject', 'campaign_id']])} must be not non-null."
-    #             )
-    #     return data
+    @model_validator(mode="after")
+    def not_all_none(self):
+        params = list(self.model_json_schema()["properties"].keys())
+        values = [getattr(self, p) for p in params]
+        notnone = sum(map(lambda x: x is not None, values))
+        if notnone == 0:
+            raise ValueError(
+                f"Some of {', '.join([repr(x) for x in params])} must be not non-null."
+            )
+        return self
 
 
 def list_trackings(
