@@ -4,6 +4,7 @@ from time import sleep
 from mailsender.db.token import SQLiteTokenDBInterface, Token
 
 from .gmail import GoogleAPIService
+from .awsses import AmazonSESService
 from ..utils import validators as validators
 from ..utils.tracking import add_pixel
 from ..utils.mailinglist import add_unsubs_footer, gen_us_link

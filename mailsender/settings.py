@@ -60,6 +60,17 @@ class GmailSettings(BaseSettings):
             )
 
 
+class AWSCredentials(BaseSettings):
+    # model_config = SettingsConfigDict(env_prefix="ses__")
+    model_config = SettingsConfigDict(env_file = ".env")
+
+    aws_access_key_id: str | None = None
+    aws_secret_access_key: str | None = None
+    region_name: str | None = None
+
+      # Specify the .env file
+
+
 class SenderSettings(BaseModel):
     max_emails: int = 100
 
@@ -86,6 +97,7 @@ class Settings(BaseSettings):
 
     config_dir: Path = dirs.user_config_path
     gmail: GmailSettings = Field(default_factory=GmailSettings)
+    ses: AWSCredentials = Field(default_factory=AWSCredentials)
     sender: SenderSettings = Field(default_factory=SenderSettings)
     db: DBSettings = Field(default_factory=DBSettings)
 
