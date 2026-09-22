@@ -172,6 +172,8 @@ class GoogleAPIService(EmailService):
         to: EmailStr,
         message: Message,
     ):
+
+        assert self._service is not None
         send_message = (
             self._service.users()
             .messages()

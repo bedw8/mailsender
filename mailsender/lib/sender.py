@@ -21,7 +21,7 @@ from pydantic import (
     EmailStr,
     InstanceOf,
     SkipValidation,
-    ConfigDict,
+    ConfigDict, TypeAdapter,
 )
 
 import warnings
@@ -36,7 +36,7 @@ class Sender:
     @validate_call(config=ConfigDict(arbitrary_types_allowed=True))
     def __init__(
         self,
-        from_address: NameEmail,
+        from_address: NameEmail | str,
         account: EmailStr | None = None,
         token: str | Token | None = None,
         verify_token: bool = False,
@@ -59,6 +59,11 @@ class Sender:
         if verify_token and token_db:
             self._token_db.validate_token(self._token) # if invalid, raise exception
 
+
+        if isinstance(from_address,str):
+            ta = TypeAdapter(NameEmail)
+            from_address = ta.validate_strings(from_address)
+
         self._from = from_address
         self._account = self._from.email if not account else account
         self._add_new = add
@@ -66,6 +71,8 @@ class Sender:
 
         self._db = records_db
         self._i = 0
+
+
 
         if service:
             self._service = service
@@ -130,16 +137,12 @@ class Sender:
                 replace(message,key="us_link",value=_us_link)
 
 
-        send_message = (
-            self.service.service.users()
-            .messages()
-            .send(userId="me", body=message.to_bytes())
-            .execute()
-        )
+        send_message = self.service.send(to,message)
 
-        if "SENT" not in send_message["labelIds"]:
-            warnings.warn(f"Email not sent to {email}")
-        elif (self._db._engine is not None) and (record is not None):
+        # if "SENT" not in send_message["labelIds"]:
+        #     warnings.warn(f"Email not sent to {email}")
+        # elif (self._db._engine is not None) and (record is not None):
+        if (self._db._engine is not None) and (record is not None):
             with self._db.get_session() as session:
                 add_record(record, session)
 
