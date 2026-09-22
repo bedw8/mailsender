@@ -12,7 +12,7 @@ from sqlmodel import (
 )
 from pydantic import BaseModel, EmailStr, model_validator
 from ..settings import config
-from datetime import datetime
+from datetime import datetime, timezone
 from smalluuid import SmallUUID
 from sqlalchemy.orm import load_only, registry
 from sqlalchemy import func
@@ -26,6 +26,8 @@ from ..lib.errors import (
     RecordNotFound,
     NotUnsubscribed,
 )
+
+from sqlalchemy import Column, DateTime
 
 
 # For multiple DB management
@@ -72,7 +74,7 @@ class Record(Base, table=True):
     to: EmailStr
     subject: str
     content: str = ""
-    sent_at: datetime = Field(default_factory=datetime.now)
+    sent_at: datetime = Field(default_factory=datetime.now, sa_column=Column(DateTime(timezone=False), nullable=False))
     campaign_id: int | None = Field(foreign_key="campaigns.id")
     campaign: Campaign | None = Relationship(back_populates="records")
     trackings: list["Track"] = Relationship()
