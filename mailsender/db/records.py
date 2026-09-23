@@ -85,14 +85,14 @@ class Track(Base, table=True):
     id: int | None = Field(default=None, primary_key=True)
     mid: str = Field(index=True, foreign_key="records.mid")
     record: Record = Relationship(back_populates="trackings")
-    opened_at: datetime = Field(default_factory=datetime.now)
+    opened_at: datetime = Field(default_factory=datetime.now, sa_column=Column(DateTime(timezone=False), nullable=False))
 
 
 class UnsubscribedEmail(Base, table=True):
     __tablename__ = "unsubscribed"
     id: int | None = Field(default=None, primary_key=True)
     email: EmailStr
-    date: datetime = Field(default_factory=datetime.now)
+    date: datetime = Field(default_factory=datetime.now, sa_column=Column(DateTime(timezone=False), nullable=False))
     comment: str | None = None
     campaign_id: int | None = Field(foreign_key="campaigns.id")
     campaign: Campaign | None = Relationship(back_populates="unsubs")
